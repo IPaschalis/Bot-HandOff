@@ -82,7 +82,7 @@ async function agentCommand(
             if(inputWords[0] == 'connect') {
                 newConversation = await handoff.connectCustomerToAgent(
                     inputWords.length > 1
-                        ? { customerId: inputWords.slice(1).join(' ') }
+                        ? { customerConversationId: inputWords.slice(1).join(' ') }
                         : { bestChoice: true },
                     ConversationState.Agent,
                     message.address
