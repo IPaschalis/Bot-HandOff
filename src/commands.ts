@@ -1,4 +1,5 @@
 import * as builder from 'botbuilder';
+import * as teams from 'botbuilder-teams'
 import { Conversation, ConversationState, Handoff } from './handoff';
 const indexExports = require('./index');
 
@@ -19,7 +20,7 @@ function command(session: builder.Session, next: Function, handoff: Handoff, bot
     if (handoff.isAgent(session)) {
         agentCommand(session, next, handoff, bot);
     } else {
-        customerCommand(session, next, handoff);
+        customerCommand(session, next, handoff, bot);
     }
 }
 
@@ -32,7 +33,7 @@ async function agentCommand(
 
     const message = session.message;
     const conversation = await handoff.getConversation({ agentConversationId: message.address.conversation.id });
-    const inputWords = message.text.split(' ');
+    const inputWords = message.text.split(/\s+/);
 
     if (inputWords.length == 0)
         return;
@@ -59,6 +60,7 @@ async function agentCommand(
             }
             const waitingConversation = await handoff.connectCustomerToAgent(
                 { bestChoice: true },
+                ConversationState.Agent,
                 message.address
             );
             if (waitingConversation) {
@@ -68,12 +70,26 @@ async function agentCommand(
             }
             return;
         case 'connect':
-            const newConversation = await handoff.connectCustomerToAgent(
-                inputWords.length > 1
-                    ? { customerId: inputWords.slice(1).join(' ') }
-                    : { bestChoice: true },
-                message.address
-            );
+        case 'watch':
+            //const newConversation = await handoff.connectCustomerToAgent(
+            //    inputWords.length > 1
+            //        ? { customerId: inputWords.slice(1).join(' ') }
+            //        : { bestChoice: true },
+            //    ConversationState.Agent,
+            //    message.address
+            //);
+            let newConversation;
+            if(inputWords[0] == 'connect') {
+                newConversation = await handoff.connectCustomerToAgent(
+                    inputWords.length > 1
+                        ? { customerId: inputWords.slice(1).join(' ') }
+                        : { bestChoice: true },
+                    ConversationState.Agent,
+                    message.address
+                );
+            }
+            else
+                newConversation = await handoff.connectCustomerToAgent({ customerConversationId: inputWords.slice(1).join(' ') }, ConversationState.Watch, message.address);
 
             if (newConversation) {
                 session.send(`You are connected to ${newConversation.customer.user.name} (${newConversation.customer.user.id})`);
@@ -90,20 +106,46 @@ async function agentCommand(
             disconnectCustomer(conversation, handoff, session, bot);
             return;
         default:
-            return next();
+            if (conversation && conversation.state === ConversationState.Agent) {
+                return next();
+            }
+            sendAgentCommandOptions(session);
+            return;
     }
 }
 
-async function customerCommand(session: builder.Session, next: Function, handoff: Handoff) {
+async function customerCommand(session: builder.Session, next: Function, handoff: Handoff, bot:builder.UniversalBot) {
     const message = session.message;
     const customerStartHandoffCommandRegex = new RegExp("^" + indexExports._customerStartHandoffCommand + "$", "gi");
     if (customerStartHandoffCommandRegex.test(message.text)) {
         // lookup the conversation (create it if one doesn't already exist)
-        const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
+
+        //also pass the teamId
+        let teamId = null;
+        if ((session.message as any).channelId == "msteams") {
+            teamId = session.message.sourceEvent.teamsTeamId;
+        }
+
+        const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId);
         if (conversation.state == ConversationState.Bot) {
+
+            //send notification of a new help request in support 
+            var reply = new teams.TeamsMessage()
+            reply.address(indexExports.support_address);
+
+            //if is member of team, also mention it
+            let team_text = '';
+            if ((session.message as any).channelId == 'msteams' && message.address.conversation.isGroup) {
+                team_text = ' from ' + session.message.sourceEvent.teamsTeamId;
+            }
+
+            reply.text(session.message.address.user.name + team_text + ' needs help.');
+            bot.send(reply);
+
             await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             await handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
-            session.endConversation("Connecting you to the next available agent.");
+            // endConversation not supported in Teams 
+            session.send("Connecting you to the next available agent.");
             return;
         }
     }
@@ -111,7 +153,7 @@ async function customerCommand(session: builder.Session, next: Function, handoff
 }
 
 function sendAgentCommandOptions(session: builder.Session) {
-    const commands = ' ### Agent Options\n - Type *waiting* to connect to customer who has been waiting longest.\n - Type *connect { user id }* to connect to a specific conversation\n - Type *history { user id }* to see a transcript of a given user\n - Type *list* to see a list of all current conversations.\n - Type *disconnect* while talking to a user to end a conversation.\n - Type *options* at any time to see these options again.';
+    const commands = ' ### Agent Options\n - Type *waiting* to connect to customer who has been waiting longest.\n - Type *connect { user id }* to connect to a specific conversation\n - Type *watch { user id }* to monitor a customer conversation\n - Type *history { user id }* to see a transcript of a given user\n - Type *list* to see a list of all current conversations.\n - Type *disconnect* while talking to a user to end a conversation.\n - Type *options* at any time to see these options again.';
     session.send(commands);
     return;
 }
@@ -125,7 +167,7 @@ async function currentConversations(handoff: Handoff): Promise<string> {
     let text = '### Current Conversations \n';
     text += "Please use the user's ID to connect with them.\n\n";
     conversations.forEach(conversation => {
-        const starterText = ` - *${conversation.customer.user.name} (ID: ${conversation.customer.user.id})*`;
+        const starterText = ` - **${conversation.customer.user.name}** *(convID: ${conversation.customer.conversation.id})*`;
         switch (ConversationState[conversation.state]) {
             case 'Bot':
                 text += starterText + ' is talking to the bot\n';
@@ -136,7 +178,11 @@ async function currentConversations(handoff: Handoff): Promise<string> {
             case 'Waiting':
                 text += starterText + ' is waiting to talk to an agent\n';
                 break;
+            case 'Watch':
+                text += starterText + ' is being monitored by an agent\n';
+                break
         }
+        text += `| **last msg:** ${new Date(conversation.transcript[conversation.transcript.length-1].timestamp).toLocaleString()}\n`;
     });
 
     return text;

@@ -5,7 +5,7 @@ import * as _ from 'lodash';
 import mongoose = require('mongoose');
 mongoose.Promise = bluebird;
 
-import { By, Conversation, Provider, ConversationState } from './handoff';
+import { By, Conversation, Team, Provider, ConversationState } from './handoff';
 
 const indexExports = require('./index');
 
@@ -59,6 +59,18 @@ export const ConversationSchema = new mongoose.Schema({
 });
 export interface ConversationDocument extends Conversation, mongoose.Document { }
 export const ConversationModel = mongoose.model<ConversationDocument>('Conversation', ConversationSchema)
+
+// Teams collection. It will point to its Conversation IDs
+export const TeamSchema = new mongoose.Schema({
+    teamId: {type: String, required: true},
+    teamName: {type: String, required: false},
+    conversation: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Conversation'
+    }]
+})
+export interface TeamDocument extends Team, mongoose.Document { _id:String }
+export const TeamModel = mongoose.model<TeamDocument>('Team', TeamSchema);
 
 export const BySchema = new mongoose.Schema({
     bestChoice: Boolean,
@@ -120,10 +132,10 @@ export class MongooseProvider implements Provider {
         return await this.updateConversation(conversation);
     }
 
-    async connectCustomerToAgent(by: By, agentAddress: builder.IAddress): Promise<Conversation> {
+    async connectCustomerToAgent(by: By, stateUpdate: ConversationState, agentAddress: builder.IAddress): Promise<Conversation> {
         const conversation: Conversation = await this.getConversation(by);
         if (conversation) {
-            conversation.state = ConversationState.Agent;
+            conversation.state = stateUpdate;
             conversation.agent = agentAddress;
         }
         const success = await this.updateConversation(conversation);
@@ -171,7 +183,7 @@ export class MongooseProvider implements Provider {
         }
     }
 
-    async getConversation(by: By, customerAddress?: builder.IAddress): Promise<Conversation> {
+    async getConversation(by: By, customerAddress?: builder.IAddress, teamId?: String): Promise<Conversation> {
         if (by.customerName) {
             const conversation = await ConversationModel.findOne({ 'customer.user.name': by.customerName });
             return conversation;
@@ -185,12 +197,12 @@ export class MongooseProvider implements Provider {
         } else if (by.customerConversationId) {
             let conversation: Conversation = await ConversationModel.findOne({ 'customer.conversation.id': by.customerConversationId });
             if (!conversation && customerAddress) {
-                conversation = await this.createConversation(customerAddress);
+                conversation = await this.createConversation(customerAddress, teamId);
             }
             return conversation;
         } else if (by.bestChoice){
-            const waitingLongest = await this.getCurrentConversations();
-            waitingLongest
+            var waitingLongest = await this.getCurrentConversations();
+            waitingLongest = waitingLongest
                 .filter(conversation => conversation.state === ConversationState.Waiting)
                 .sort((x, y) => y.transcript[y.transcript.length - 1].timestamp - x.transcript[x.transcript.length - 1].timestamp);
             return waitingLongest.length > 0 && waitingLongest[0];
@@ -209,11 +221,44 @@ export class MongooseProvider implements Provider {
         return conversations;
     }
 
-    private async createConversation(customerAddress: builder.IAddress): Promise<Conversation> {
-        return await ConversationModel.create({
+    private async createConversation(customerAddress: builder.IAddress, teamId:String): Promise<Conversation> {
+        let conversation = await ConversationModel.create({
             customer: customerAddress,
             state: ConversationState.Bot,
             transcript: []
+        });
+
+        // find the team this conversation belongs to
+        if (teamId == null) teamId = 'Personal Chat';
+        let team = await TeamModel.findOne({ 'teamId': teamId});
+        // if it doesn't exist create it
+        if (!team) {
+            team = await this.createTeam(teamId);
+        }
+        //add the conversation to the team
+        const success = await this.updateTeam(team, conversation._id)
+        if (!success) return null;
+
+        return conversation;
+    }
+
+    private async createTeam(teamId:String): Promise<TeamDocument> {
+        return await TeamModel.create({
+            teamId: teamId,
+            conversation: []
+        });
+    }
+
+    private async updateTeam(team:TeamDocument, convid:String): Promise<boolean> {
+        team.conversation.push(convid);
+        return new Promise<boolean>((resolve, reject) => {
+            TeamModel.findByIdAndUpdate(team._id, team).then((error) => {
+                resolve(true);
+            }).catch((error) => {
+                console.log('Failed to update team');
+                console.log(team);
+                resolve(false);
+            });
         });
     }
 

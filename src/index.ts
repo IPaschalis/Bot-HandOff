@@ -3,9 +3,21 @@ import { Handoff, ConversationState } from './handoff';
 import { commandsMiddleware } from './commands';
 import * as express from 'express';
 import * as bodyParser from 'body-parser';
-import * as cors from 'cors';
+//import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
+
+const support_address = {
+    "channelId": "msteams",
+    "bot":{
+        "id": process.env.MICROSOFT_APP_ID,
+        "name": "MareraBot"
+    },
+    "conversation": {"isGroup": true, "id": process.env.SUPPORT_CHANNEL_ID},
+    "serviceUrl":"https://smba.trafficmanager.net/emea-client-ss.msg/"
+} 
+exports.support_address=support_address;
+
 let setup = (bot, app, isAgent, options) => {
 
     let mongooseProvider = null;
@@ -73,11 +85,10 @@ let setup = (bot, app, isAgent, options) => {
     }
 
     if (app && _directLineSecret != null) {
-        app.use(cors({ origin: '*' }));
         app.use(bodyParser.json());
 
-        // Create endpoint for agent / call center
-        app.use('/webchat', express.static('public'));
+        //// Create endpoint for agent / call center
+        //app.use('/webchat', express.static('public'));
 
         // Endpoint to get current conversations
         app.get('/api/conversations', async (req, res) => {

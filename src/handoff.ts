@@ -7,7 +7,8 @@ import { MongooseProvider } from './mongoose-provider';
 export enum ConversationState {
     Bot,
     Waiting,
-    Agent
+    Agent,
+    Watch
 }
 
 // What an entry in the customer transcript will have
@@ -27,6 +28,11 @@ export interface Conversation {
     transcript: TranscriptLine[]
 };
 
+export interface Team {
+    teamId: String,
+    conversation: String[]
+}
+
 // Used in getConversation in provider. Gives context to the search and changes behavior
 export interface By {
     bestChoice?: true,
@@ -41,12 +47,12 @@ export interface Provider {
 
     // Update
     addToTranscript: (by: By, message: builder.IMessage, from?: string) => Promise<boolean>;
-    connectCustomerToAgent: (by: By, agentAddress: builder.IAddress, nextState?: ConversationState) => Promise<Conversation>;
+    connectCustomerToAgent: (by: By, nextState:ConversationState, agentAddress: builder.IAddress) => Promise<Conversation>;
     connectCustomerToBot: (by: By) => Promise<boolean>;
     queueCustomerForAgent: (by: By) => Promise<boolean>;
 
     // Get
-    getConversation: (by: By, customerAddress?: builder.IAddress) => Promise<Conversation>;
+    getConversation: (by: By, customerAddress?: builder.IAddress, teamId?: String) => Promise<Conversation>;
 }
 
 export class Handoff {
@@ -72,8 +78,19 @@ export class Handoff {
             },
             send: async (event: builder.IMessage, next: Function) => {
                 // Messages sent from the bot do not need to be routed
+
+                // skip agent messages
+                if (event.address.conversation.id.split(';')[0] == process.env.SUPPORT_CHANNEL_ID)
+                    next();
+
                 // Not all messages from the bot are type message, we only want to record the actual messages  
-                if (event.type === 'message' && !event.entities) {
+                else if (event.type === 'message' && !event.entities) {
+                    const message = event;
+                    const customerConversation = await this.getConversation({ customerConversationId: event.address.conversation.id });
+                    // send message to agent observing conversation
+                    if (customerConversation.state === ConversationState.Watch) {
+                        this.bot.send(new builder.Message().address(customerConversation.agent).text(message.text));
+                    }
                     this.transcribeMessageFromBot(event as builder.IMessage, next);
                 } else {
                     //If not a message (text), just send to user without transcribing
@@ -113,15 +130,22 @@ export class Handoff {
     private async routeCustomerMessage(session: builder.Session, next: Function) {
         const message = session.message;
         // method will either return existing conversation or a newly created conversation if this is first time we've heard from customer
-        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
+        let teamId = null;
+        if ((session.message as any).channelId = "msteams") {
+            teamId = session.message.sourceEvent.teamsTeamId;
+        }
+
+        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId);
         await this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
 
         switch (conversation.state) {
             case ConversationState.Bot:
                 return next();
             case ConversationState.Waiting:
-                session.send("Connecting you to the next available agent.");
-                return;
+                return next();
+            case ConversationState.Watch:
+                this.bot.send(new builder.Message().address(conversation.agent).text(message.text));
+                return next()
             case ConversationState.Agent:
                 if (!conversation.agent) {
                     session.send("No agent address present while customer in state Agent");
@@ -149,8 +173,8 @@ export class Handoff {
         }
     }
 
-    public connectCustomerToAgent = async (by: By, agentAddress: builder.IAddress) => {
-        return await this.provider.connectCustomerToAgent(by, agentAddress);
+    public connectCustomerToAgent = async (by: By, nextState:ConversationState, agentAddress: builder.IAddress) => {
+        return await this.provider.connectCustomerToAgent(by, nextState, agentAddress);
     }
 
     public connectCustomerToBot = async (by: By) => {
@@ -166,8 +190,8 @@ export class Handoff {
         return await this.provider.addToTranscript(by, message, from);
     }
 
-    public getConversation = async (by: By, customerAddress?: builder.IAddress) => {
-        return await this.provider.getConversation(by, customerAddress);
+    public getConversation = async (by: By, customerAddress?: builder.IAddress, teamId?: String) => {
+        return await this.provider.getConversation(by, customerAddress, teamId);
     }
 
     public getCurrentConversations = async (): Promise<Conversation[]> => {

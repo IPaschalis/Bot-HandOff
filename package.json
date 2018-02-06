@@ -27,7 +27,8 @@
     "applicationinsights": "^0.20.1",
     "bluebird": "^3.5.0",
     "body-parser": "^1.17.2",
-    "botbuilder": "^3.7.0",
+    "botbuilder": "^3.14.0",
+    "botbuilder-teams": "^0.1.7",
     "cors": "2.8.3",
     "express": "^4.14.0",
     "lodash": "^4.17.4",
@@ -39,5 +40,12 @@
     "@types/mongoose": "^4.7.11",
     "@types/node": "^6.0.59",
     "nodemon": "^1.11.0"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/palindromed/Bot-HandOff/issues"
+  },
+  "directories": {
+    "example": "example"
+  },
+  "author": ""
 }
