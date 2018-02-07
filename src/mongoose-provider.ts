@@ -221,6 +221,31 @@ export class MongooseProvider implements Provider {
         return conversations;
     }
 
+    async getTeamConversations(teamId: String): Promise<Conversation[]> {
+        let conversations;
+        try {
+            // find the coresponding conversations from the ids 
+            let model = await TeamModel.findOne({teamId:teamId}).select('conversation').populate('conversation');
+            conversations = model.conversation;
+            console.log(conversations);
+        } catch (error) {
+            console.log('Failed loading conversations');
+            console.log(error);
+        }
+        return conversations;
+    }
+
+    async getCurrentTeams(): Promise<Team[]> {
+        let teams;
+        try {
+            teams = await TeamModel.find();
+        } catch (error) {
+            console.log('Failed loading Teams');
+            console.log(error);
+        }
+        return teams;
+    }
+
     private async createConversation(customerAddress: builder.IAddress, teamId:String): Promise<Conversation> {
         let conversation = await ConversationModel.create({
             customer: customerAddress,

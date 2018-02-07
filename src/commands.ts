@@ -44,7 +44,19 @@ async function agentCommand(
             sendAgentCommandOptions(session);
             return;
         case 'list':
-            session.send(await currentConversations(handoff));
+            if (inputWords.length == 1)
+                session.send(await currentTeams(handoff));
+            else {
+                //show the conversation of that Team
+                let team = inputWords.slice(1).join(' ');
+                let conversations = (await handoff.getTeamConversations(team));
+                if (!conversations) {
+                    session.send(`Team '${team}' does not exist. Connect to one of the Teams below.`);
+                    session.send(await currentTeams(handoff));
+                }
+                else
+                    session.send(await currentConversations(handoff, conversations));
+            } 
             return;
         case 'history':
             await handoff.getCustomerTranscript(
@@ -158,14 +170,17 @@ function sendAgentCommandOptions(session: builder.Session) {
     return;
 }
 
-async function currentConversations(handoff: Handoff): Promise<string> {
-    const conversations = await handoff.getCurrentConversations();
+async function currentConversations(handoff: Handoff, conversations?: Conversation[]): Promise<string> {
+    //if we didn't pass the conversations parameters, find all conversations
+    if (!conversations)
+        conversations = await handoff.getCurrentConversations();
+
     if (conversations.length === 0) {
         return "No customers are in conversation.";
     }
 
     let text = '### Current Conversations \n';
-    text += "Please use the user's ID to connect with them.\n\n";
+    text += "Please use the conversation's ID to connect.\n\n";
     conversations.forEach(conversation => {
         const starterText = ` - **${conversation.customer.user.name}** *(convID: ${conversation.customer.conversation.id})*`;
         switch (ConversationState[conversation.state]) {
@@ -183,6 +198,21 @@ async function currentConversations(handoff: Handoff): Promise<string> {
                 break
         }
         text += `| **last msg:** ${new Date(conversation.transcript[conversation.transcript.length-1].timestamp).toLocaleString()}\n`;
+    });
+
+    return text;
+}
+
+async function currentTeams(handoff: Handoff): Promise<string> {
+    const teams = await handoff.getCurrentTeams();
+    if (teams.length === 0) {
+        return "No customers are in conversation.";
+    }
+
+    let text = '### Current Teams \n';
+    text += "Type list *Team name* to view the Team's conversations\n\n";
+    teams.forEach(team => {
+        text += ` - ${team.teamId} \n`
     });
 
     return text;

@@ -30,6 +30,7 @@ export interface Conversation {
 
 export interface Team {
     teamId: String,
+    teamName: String,
     conversation: String[]
 }
 
@@ -196,5 +197,13 @@ export class Handoff {
 
     public getCurrentConversations = async (): Promise<Conversation[]> => {
         return await this.provider.getCurrentConversations();
+    }
+
+    public getCurrentTeams = async (): Promise<Team[]> => {
+        return await this.provider.getCurrentTeams();
+    }
+
+    public getTeamConversations = async (teamId: String): Promise<Conversation[]> => {
+        return await this.provider.getTeamConversations(teamId);
     }
 };
