@@ -62,6 +62,16 @@ exports.ConversationSchema = new mongoose.Schema({
     transcript: [exports.TranscriptLineSchema]
 });
 exports.ConversationModel = mongoose.model('Conversation', exports.ConversationSchema);
+// Teams collection. It will point to its Conversation IDs
+exports.TeamSchema = new mongoose.Schema({
+    teamId: { type: String, required: true },
+    teamName: { type: String, required: false },
+    conversation: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Conversation'
+        }]
+});
+exports.TeamModel = mongoose.model('Team', exports.TeamSchema);
 exports.BySchema = new mongoose.Schema({
     bestChoice: Boolean,
     agentConversationId: String,
@@ -117,11 +127,11 @@ class MongooseProvider {
             return yield this.updateConversation(conversation);
         });
     }
-    connectCustomerToAgent(by, agentAddress) {
+    connectCustomerToAgent(by, stateUpdate, agentAddress) {
         return __awaiter(this, void 0, void 0, function* () {
             const conversation = yield this.getConversation(by);
             if (conversation) {
-                conversation.state = handoff_1.ConversationState.Agent;
+                conversation.state = stateUpdate;
                 conversation.agent = agentAddress;
             }
             const success = yield this.updateConversation(conversation);
@@ -176,7 +186,7 @@ class MongooseProvider {
             }
         });
     }
-    getConversation(by, customerAddress) {
+    getConversation(by, customerAddress, teamId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (by.customerName) {
                 const conversation = yield exports.ConversationModel.findOne({ 'customer.user.name': by.customerName });
@@ -196,13 +206,13 @@ class MongooseProvider {
             else if (by.customerConversationId) {
                 let conversation = yield exports.ConversationModel.findOne({ 'customer.conversation.id': by.customerConversationId });
                 if (!conversation && customerAddress) {
-                    conversation = yield this.createConversation(customerAddress);
+                    conversation = yield this.createConversation(customerAddress, teamId);
                 }
                 return conversation;
             }
             else if (by.bestChoice) {
-                const waitingLongest = yield this.getCurrentConversations();
-                waitingLongest
+                var waitingLongest = yield this.getCurrentConversations();
+                waitingLongest = waitingLongest
                     .filter(conversation => conversation.state === handoff_1.ConversationState.Waiting)
                     .sort((x, y) => y.transcript[y.transcript.length - 1].timestamp - x.transcript[x.transcript.length - 1].timestamp);
                 return waitingLongest.length > 0 && waitingLongest[0];
@@ -223,12 +233,76 @@ class MongooseProvider {
             return conversations;
         });
     }
-    createConversation(customerAddress) {
+    getTeamConversations(teamId) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield exports.ConversationModel.create({
+            let conversations;
+            try {
+                // find the coresponding conversations from the ids 
+                let model = yield exports.TeamModel.findOne({ teamId: teamId }).select('conversation').populate('conversation');
+                conversations = model.conversation;
+                console.log(conversations);
+            }
+            catch (error) {
+                console.log('Failed loading conversations');
+                console.log(error);
+            }
+            return conversations;
+        });
+    }
+    getCurrentTeams() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let teams;
+            try {
+                teams = yield exports.TeamModel.find();
+            }
+            catch (error) {
+                console.log('Failed loading Teams');
+                console.log(error);
+            }
+            return teams;
+        });
+    }
+    createConversation(customerAddress, teamId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let conversation = yield exports.ConversationModel.create({
                 customer: customerAddress,
                 state: handoff_1.ConversationState.Bot,
                 transcript: []
+            });
+            // find the team this conversation belongs to
+            if (teamId == null)
+                teamId = 'Personal Chat';
+            let team = yield exports.TeamModel.findOne({ 'teamId': teamId });
+            // if it doesn't exist create it
+            if (!team) {
+                team = yield this.createTeam(teamId);
+            }
+            //add the conversation to the team
+            const success = yield this.updateTeam(team, conversation._id);
+            if (!success)
+                return null;
+            return conversation;
+        });
+    }
+    createTeam(teamId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield exports.TeamModel.create({
+                teamId: teamId,
+                conversation: []
+            });
+        });
+    }
+    updateTeam(team, convid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            team.conversation.push(convid);
+            return new Promise((resolve, reject) => {
+                exports.TeamModel.findByIdAndUpdate(team._id, team).then((error) => {
+                    resolve(true);
+                }).catch((error) => {
+                    console.log('Failed to update team');
+                    console.log(team);
+                    resolve(false);
+                });
             });
         });
     }

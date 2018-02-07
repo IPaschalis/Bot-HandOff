@@ -11,11 +11,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_provider_1 = require("./mongoose-provider");
 const handoff_1 = require("./handoff");
 const commands_1 = require("./commands");
-const express = require("express");
 const bodyParser = require("body-parser");
-const cors = require("cors");
+//import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
+const support_address = {
+    "channelId": "msteams",
+    "bot": {
+        "id": process.env.MICROSOFT_APP_ID,
+        "name": "MareraBot"
+    },
+    "conversation": { "isGroup": true, "id": process.env.SUPPORT_CHANNEL_ID },
+    "serviceUrl": "https://smba.trafficmanager.net/emea-client-ss.msg/"
+};
+exports.support_address = support_address;
 let setup = (bot, app, isAgent, options) => {
     let mongooseProvider = null;
     let _retainData = null;
@@ -75,10 +84,9 @@ let setup = (bot, app, isAgent, options) => {
         bot.use(commands_1.commandsMiddleware(bot, handoff), handoff.routingMiddleware());
     }
     if (app && _directLineSecret != null) {
-        app.use(cors({ origin: '*' }));
         app.use(bodyParser.json());
-        // Create endpoint for agent / call center
-        app.use('/webchat', express.static('public'));
+        //// Create endpoint for agent / call center
+        //app.use('/webchat', express.static('public'));
         // Endpoint to get current conversations
         app.get('/api/conversations', (req, res) => __awaiter(this, void 0, void 0, function* () {
             const authHeader = req.headers['authorization'];

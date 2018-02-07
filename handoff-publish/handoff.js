@@ -17,6 +17,7 @@ var ConversationState;
     ConversationState[ConversationState["Bot"] = 0] = "Bot";
     ConversationState[ConversationState["Waiting"] = 1] = "Waiting";
     ConversationState[ConversationState["Agent"] = 2] = "Agent";
+    ConversationState[ConversationState["Watch"] = 3] = "Watch";
 })(ConversationState = exports.ConversationState || (exports.ConversationState = {}));
 ;
 class Handoff {
@@ -25,8 +26,8 @@ class Handoff {
         this.bot = bot;
         this.isAgent = isAgent;
         this.provider = provider;
-        this.connectCustomerToAgent = (by, agentAddress) => __awaiter(this, void 0, void 0, function* () {
-            return yield this.provider.connectCustomerToAgent(by, agentAddress);
+        this.connectCustomerToAgent = (by, nextState, agentAddress) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.connectCustomerToAgent(by, nextState, agentAddress);
         });
         this.connectCustomerToBot = (by) => __awaiter(this, void 0, void 0, function* () {
             return yield this.provider.connectCustomerToBot(by);
@@ -38,11 +39,17 @@ class Handoff {
             let from = by.agentConversationId ? 'Agent' : 'Customer';
             return yield this.provider.addToTranscript(by, message, from);
         });
-        this.getConversation = (by, customerAddress) => __awaiter(this, void 0, void 0, function* () {
-            return yield this.provider.getConversation(by, customerAddress);
+        this.getConversation = (by, customerAddress, teamId) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.getConversation(by, customerAddress, teamId);
         });
         this.getCurrentConversations = () => __awaiter(this, void 0, void 0, function* () {
             return yield this.provider.getCurrentConversations();
+        });
+        this.getCurrentTeams = () => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.getCurrentTeams();
+        });
+        this.getTeamConversations = (teamId) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.getTeamConversations(teamId);
         });
         this.provider.init();
     }
@@ -60,8 +67,16 @@ class Handoff {
             },
             send: (event, next) => __awaiter(this, void 0, void 0, function* () {
                 // Messages sent from the bot do not need to be routed
-                // Not all messages from the bot are type message, we only want to record the actual messages  
-                if (event.type === 'message' && !event.entities) {
+                // skip agent messages
+                if (event.address.conversation.id.split(';')[0] == process.env.SUPPORT_CHANNEL_ID)
+                    next();
+                else if (event.type === 'message' && !event.entities) {
+                    const message = event;
+                    const customerConversation = yield this.getConversation({ customerConversationId: event.address.conversation.id });
+                    // send message to agent observing conversation
+                    if (customerConversation.state === ConversationState.Watch) {
+                        this.bot.send(new builder.Message().address(customerConversation.agent).text(message.text));
+                    }
                     this.transcribeMessageFromBot(event, next);
                 }
                 else {
@@ -101,14 +116,20 @@ class Handoff {
         return __awaiter(this, void 0, void 0, function* () {
             const message = session.message;
             // method will either return existing conversation or a newly created conversation if this is first time we've heard from customer
-            const conversation = yield this.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
+            let teamId = null;
+            if (session.message.channelId = "msteams") {
+                teamId = session.message.sourceEvent.teamsTeamId;
+            }
+            const conversation = yield this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId);
             yield this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             switch (conversation.state) {
                 case ConversationState.Bot:
                     return next();
                 case ConversationState.Waiting:
-                    session.send("Connecting you to the next available agent.");
-                    return;
+                    return next();
+                case ConversationState.Watch:
+                    this.bot.send(new builder.Message().address(conversation.agent).text(message.text));
+                    return next();
                 case ConversationState.Agent:
                     if (!conversation.agent) {
                         session.send("No agent address present while customer in state Agent");
