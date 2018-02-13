@@ -223,13 +223,13 @@ async function disconnectCustomer(conversation: Conversation, handoff: any, sess
         //Send message to agent
         session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
 
-		// do not inform customer if agent is watching
-        if (bot && conversation.state!=ConversationState.Watch) {
-            //Send message to customer
-            var reply = new builder.Message()
-                .address(conversation.customer)
-                .text('Agent has disconnected, you are now speaking to the bot.');
-            bot.send(reply);
-        }
+		// do not inform customer of agent disconnect now
+        //if (bot && conversation.state!=ConversationState.Watch) {
+        //    //Send message to customer
+        //    var reply = new builder.Message()
+        //        .address(conversation.customer)
+        //        .text('Agent has disconnected, you are now speaking to the bot.');
+        //    bot.send(reply);
+        //}
     }
 }

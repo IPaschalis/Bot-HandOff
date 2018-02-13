@@ -167,7 +167,8 @@ export class Handoff {
     public async getCustomerTranscript(by: By, session: builder.Session) {
         const customerConversation = await this.getConversation(by);
         if (customerConversation) {
-            customerConversation.transcript.forEach(transcriptLine =>
+            // only return the last 10
+            customerConversation.transcript.slice(-10).forEach(transcriptLine =>
                 session.send(transcriptLine.text));
         } else {
             session.send('No Transcript to show. Try entering a username or try again when connected to a customer');

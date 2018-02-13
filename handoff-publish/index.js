@@ -12,6 +12,7 @@ const mongoose_provider_1 = require("./mongoose-provider");
 const handoff_1 = require("./handoff");
 const commands_1 = require("./commands");
 const bodyParser = require("body-parser");
+const builder = require("botbuilder");
 //import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
@@ -125,14 +126,33 @@ let setup = (bot, app, isAgent, options) => {
     }
 };
 //this method is to trigger the handoff (useful for when you want a luis dialog to trigger the handoff, instead of the keyword)
-function triggerHandoff(session) {
+function triggerHandoff(bot, session) {
     return __awaiter(this, void 0, void 0, function* () {
         const message = session.message;
         const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
         if (conversation.state == handoff_1.ConversationState.Bot) {
             yield handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             yield handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
-            session.endConversation("Connecting you to the next available agent.");
+            //send notification of a new help request in support 
+            var msg = new builder.Message().address(support_address);
+            //if is member of team, also mention it
+            let team_text = session.message.address.user.name;
+            if (session.message.channelId == 'msteams' && message.address.conversation.isGroup) {
+                team_text = ' from ' + session.message.sourceEvent.teamsTeamId;
+            }
+            team_text += ' needs help.';
+            var herocard = new builder.HeroCard(session)
+                .text(team_text)
+                .buttons([
+                builder.CardAction.imBack(session, "connect " + message.address.conversation.id, "Connect"),
+                builder.CardAction.imBack(session, "watch " + message.address.conversation.id, "Watch"),
+                builder.CardAction.imBack(session, "history " + message.address.conversation.id, "Chat logs")
+            ]);
+            // attach the card to the reply message
+            msg.addAttachment(herocard);
+            bot.send(msg);
+            // commented out because we don't want the user to know 
+            //session.endConversation("Connecting you to the next available agent.");
             return;
         }
     });

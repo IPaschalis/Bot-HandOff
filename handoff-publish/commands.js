@@ -8,7 +8,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const builder = require("botbuilder");
 const teams = require("botbuilder-teams");
 const handoff_1 = require("./handoff");
 const indexExports = require('./index');
@@ -206,14 +205,14 @@ function disconnectCustomer(conversation, handoff, session, bot) {
         if (yield handoff.connectCustomerToBot({ customerConversationId: conversation.customer.conversation.id })) {
             //Send message to agent
             session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
-            // do not inform customer if agent is watching
-            if (bot && conversation.state != handoff_1.ConversationState.Watch) {
-                //Send message to customer
-                var reply = new builder.Message()
-                    .address(conversation.customer)
-                    .text('Agent has disconnected, you are now speaking to the bot.');
-                bot.send(reply);
-            }
+            // do not inform customer of agent disconnect now
+            //if (bot && conversation.state!=ConversationState.Watch) {
+            //    //Send message to customer
+            //    var reply = new builder.Message()
+            //        .address(conversation.customer)
+            //        .text('Agent has disconnected, you are now speaking to the bot.');
+            //    bot.send(reply);
+            //}
         }
     });
 }
