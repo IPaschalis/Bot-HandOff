@@ -61,7 +61,7 @@ async function agentCommand(
         case 'history':
             await handoff.getCustomerTranscript(
                 inputWords.length > 1
-                    ? { customerId: inputWords.slice(1).join(' ') }
+                    ? { customerConversationId: inputWords.slice(1).join(' ') }
                     : { agentConversationId: message.address.conversation.id },
                 session);
             return;

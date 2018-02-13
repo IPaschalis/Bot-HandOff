@@ -63,7 +63,7 @@ function agentCommand(session, next, handoff, bot) {
                 return;
             case 'history':
                 yield handoff.getCustomerTranscript(inputWords.length > 1
-                    ? { customerId: inputWords.slice(1).join(' ') }
+                    ? { customerConversationId: inputWords.slice(1).join(' ') }
                     : { agentConversationId: message.address.conversation.id }, session);
                 return;
             case 'waiting':
