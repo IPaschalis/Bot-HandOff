@@ -63,6 +63,8 @@ export const ConversationModel = mongoose.model<ConversationDocument>('Conversat
 // Teams collection. It will point to its Conversation IDs
 export const TeamSchema = new mongoose.Schema({
     teamId: {type: String, required: true},
+    tenantId: {type: String, required:true},
+    channel: {type:String, required:true, default:"Teams"},
     teamName: {type: String, required: false},
     conversation: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -183,7 +185,7 @@ export class MongooseProvider implements Provider {
         }
     }
 
-    async getConversation(by: By, customerAddress?: builder.IAddress, teamId?: String): Promise<Conversation> {
+    async getConversation(by: By, customerAddress?: builder.IAddress, teamId?: String, tenantId?: String): Promise<Conversation> {
         if (by.customerName) {
             const conversation = await ConversationModel.findOne({ 'customer.user.name': by.customerName });
             return conversation;
@@ -197,7 +199,7 @@ export class MongooseProvider implements Provider {
         } else if (by.customerConversationId) {
             let conversation: Conversation = await ConversationModel.findOne({ 'customer.conversation.id': by.customerConversationId });
             if (!conversation && customerAddress) {
-                conversation = await this.createConversation(customerAddress, teamId);
+                conversation = await this.createConversation(customerAddress, teamId, tenantId);
             }
             return conversation;
         } else if (by.bestChoice){
@@ -246,7 +248,7 @@ export class MongooseProvider implements Provider {
         return teams;
     }
 
-    private async createConversation(customerAddress: builder.IAddress, teamId:String): Promise<Conversation> {
+    private async createConversation(customerAddress: builder.IAddress, teamId: String, tenantId: String): Promise<Conversation> {
         let conversation = await ConversationModel.create({
             customer: customerAddress,
             state: ConversationState.Bot,
@@ -254,11 +256,14 @@ export class MongooseProvider implements Provider {
         });
 
         // find the team this conversation belongs to
-        if (teamId == null) teamId = 'Personal Chat';
+        if (teamId == null) {
+            teamId = 'Personal Chat';
+            tenantId = 'Many';
+        }
         let team = await TeamModel.findOne({ 'teamId': teamId});
         // if it doesn't exist create it
         if (!team) {
-            team = await this.createTeam(teamId);
+            team = await this.createTeam(teamId, tenantId);
         }
         //add the conversation to the team
         const success = await this.updateTeam(team, conversation._id)
@@ -267,9 +272,10 @@ export class MongooseProvider implements Provider {
         return conversation;
     }
 
-    private async createTeam(teamId:String): Promise<TeamDocument> {
+    private async createTeam(teamId:String, tenantId:String): Promise<TeamDocument> {
         return await TeamModel.create({
             teamId: teamId,
+            tenantId: tenantId,
             conversation: []
         });
     }

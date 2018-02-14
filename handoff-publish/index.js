@@ -131,7 +131,8 @@ function triggerHandoff(bot, session) {
         const message = session.message;
         const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
         if (conversation.state == handoff_1.ConversationState.Bot) {
-            yield handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
+            // do not log this to prevent duplicates
+            //await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             yield handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
             //send notification of a new help request in support 
             var msg = new builder.Message().address(support_address);

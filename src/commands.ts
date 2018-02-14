@@ -134,11 +134,12 @@ async function customerCommand(session: builder.Session, next: Function, handoff
 
         //also pass the teamId
         let teamId = null;
+        let tenantId = null;
         if ((session.message as any).channelId == "msteams") {
             teamId = session.message.sourceEvent.teamsTeamId;
         }
 
-        const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId);
+        const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
         if (conversation.state == ConversationState.Bot) {
 
             //send notification of a new help request in support 

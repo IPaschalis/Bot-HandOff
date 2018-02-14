@@ -125,10 +125,11 @@ function customerCommand(session, next, handoff, bot) {
             // lookup the conversation (create it if one doesn't already exist)
             //also pass the teamId
             let teamId = null;
+            let tenantId = null;
             if (session.message.channelId == "msteams") {
                 teamId = session.message.sourceEvent.teamsTeamId;
             }
-            const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId);
+            const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
             if (conversation.state == handoff_1.ConversationState.Bot) {
                 //send notification of a new help request in support 
                 var reply = new teams.TeamsMessage();

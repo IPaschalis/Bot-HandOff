@@ -1,6 +1,7 @@
 import * as builder from 'botbuilder';
 import { Express } from 'express';
 import { MongooseProvider } from './mongoose-provider';
+import * as teams from 'botbuilder-teams';
 
 // Options for state of a conversation
 // Customer talking to bot, waiting for next available agent or talking to an agent
@@ -53,7 +54,7 @@ export interface Provider {
     queueCustomerForAgent: (by: By) => Promise<boolean>;
 
     // Get
-    getConversation: (by: By, customerAddress?: builder.IAddress, teamId?: String) => Promise<Conversation>;
+    getConversation: (by: By, customerAddress?: builder.IAddress, teamId?: String, tenantId?: String) => Promise<Conversation>;
 }
 
 export class Handoff {
@@ -132,11 +133,13 @@ export class Handoff {
         const message = session.message;
         // method will either return existing conversation or a newly created conversation if this is first time we've heard from customer
         let teamId = null;
+        let tenantId = null;
         if ((session.message as any).channelId = "msteams") {
             teamId = session.message.sourceEvent.teamsTeamId;
+            tenantId = teams.TeamsMessage.getTenantId(session.message);
         }
 
-        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId);
+        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
         await this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
 
         switch (conversation.state) {
@@ -195,8 +198,8 @@ export class Handoff {
         return await this.provider.addToTranscript(by, message, from);
     }
 
-    public getConversation = async (by: By, customerAddress?: builder.IAddress, teamId?: String) => {
-        return await this.provider.getConversation(by, customerAddress, teamId);
+    public getConversation = async (by: By, customerAddress?: builder.IAddress, teamId?: String, tenantId?: String) => {
+        return await this.provider.getConversation(by, customerAddress, teamId, tenantId);
     }
 
     public getCurrentConversations = async (): Promise<Conversation[]> => {

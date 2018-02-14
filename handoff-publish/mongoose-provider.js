@@ -65,6 +65,8 @@ exports.ConversationModel = mongoose.model('Conversation', exports.ConversationS
 // Teams collection. It will point to its Conversation IDs
 exports.TeamSchema = new mongoose.Schema({
     teamId: { type: String, required: true },
+    tenantId: { type: String, required: true },
+    channel: { type: String, required: true, default: "Teams" },
     teamName: { type: String, required: false },
     conversation: [{
             type: mongoose.Schema.Types.ObjectId,
@@ -186,7 +188,7 @@ class MongooseProvider {
             }
         });
     }
-    getConversation(by, customerAddress, teamId) {
+    getConversation(by, customerAddress, teamId, tenantId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (by.customerName) {
                 const conversation = yield exports.ConversationModel.findOne({ 'customer.user.name': by.customerName });
@@ -206,7 +208,7 @@ class MongooseProvider {
             else if (by.customerConversationId) {
                 let conversation = yield exports.ConversationModel.findOne({ 'customer.conversation.id': by.customerConversationId });
                 if (!conversation && customerAddress) {
-                    conversation = yield this.createConversation(customerAddress, teamId);
+                    conversation = yield this.createConversation(customerAddress, teamId, tenantId);
                 }
                 return conversation;
             }
@@ -262,7 +264,7 @@ class MongooseProvider {
             return teams;
         });
     }
-    createConversation(customerAddress, teamId) {
+    createConversation(customerAddress, teamId, tenantId) {
         return __awaiter(this, void 0, void 0, function* () {
             let conversation = yield exports.ConversationModel.create({
                 customer: customerAddress,
@@ -270,12 +272,14 @@ class MongooseProvider {
                 transcript: []
             });
             // find the team this conversation belongs to
-            if (teamId == null)
+            if (teamId == null) {
                 teamId = 'Personal Chat';
+                tenantId = 'Many';
+            }
             let team = yield exports.TeamModel.findOne({ 'teamId': teamId });
             // if it doesn't exist create it
             if (!team) {
-                team = yield this.createTeam(teamId);
+                team = yield this.createTeam(teamId, tenantId);
             }
             //add the conversation to the team
             const success = yield this.updateTeam(team, conversation._id);
@@ -284,10 +288,11 @@ class MongooseProvider {
             return conversation;
         });
     }
-    createTeam(teamId) {
+    createTeam(teamId, tenantId) {
         return __awaiter(this, void 0, void 0, function* () {
             return yield exports.TeamModel.create({
                 teamId: teamId,
+                tenantId: tenantId,
                 conversation: []
             });
         });
