@@ -141,9 +141,9 @@ async function triggerHandoff(bot, session) {
         //if is member of team, also mention it
         let team_text = session.message.address.user.name;
         if ((session.message as any).channelId == 'msteams' && message.address.conversation.isGroup) {
-            team_text = ' from ' + session.message.sourceEvent.teamsTeamId;
+            team_text += ' from ' + session.message.sourceEvent.teamsTeamId;
         }
-        team_text += ' needs help.';
+        team_text += ' needs help. Last message:\n'+message.text;
 
         var herocard = new builder.HeroCard(session)
         .text(team_text)

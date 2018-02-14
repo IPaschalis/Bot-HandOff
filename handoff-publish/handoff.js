@@ -150,8 +150,10 @@ class Handoff {
         return __awaiter(this, void 0, void 0, function* () {
             const customerConversation = yield this.getConversation(by);
             if (customerConversation) {
+                let text = '';
                 // only return the last 10
-                customerConversation.transcript.slice(-10).forEach(transcriptLine => session.send(transcriptLine.text));
+                customerConversation.transcript.slice(-10).forEach(transcriptLine => text += `**${transcriptLine.from}** (*${new Date(transcriptLine.timestamp).toLocaleString()} UTC*): ${transcriptLine.text}\n\n`);
+                session.send(text);
             }
             else {
                 session.send('No Transcript to show. Try entering a username or try again when connected to a customer');
