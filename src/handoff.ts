@@ -2,6 +2,7 @@ import * as builder from 'botbuilder';
 import { Express } from 'express';
 import { MongooseProvider } from './mongoose-provider';
 import * as teams from 'botbuilder-teams';
+const indexExports = require('./index');
 
 // Options for state of a conversation
 // Customer talking to bot, waiting for next available agent or talking to an agent
@@ -82,7 +83,7 @@ export class Handoff {
                 // Messages sent from the bot do not need to be routed
 
                 // skip agent messages
-                if (event.address.conversation.id.split(';')[0] == process.env.SUPPORT_CHANNEL_ID)
+                if (event.address.conversation.id.split(';')[0] == indexExports._supportChannelId)
                     next();
 
                 // Not all messages from the bot are type message, we only want to record the actual messages  

@@ -11,6 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const builder = require("botbuilder");
 const mongoose_provider_1 = require("./mongoose-provider");
 const teams = require("botbuilder-teams");
+const indexExports = require('./index');
 // Options for state of a conversation
 // Customer talking to bot, waiting for next available agent or talking to an agent
 var ConversationState;
@@ -69,7 +70,7 @@ class Handoff {
             send: (event, next) => __awaiter(this, void 0, void 0, function* () {
                 // Messages sent from the bot do not need to be routed
                 // skip agent messages
-                if (event.address.conversation.id.split(';')[0] == process.env.SUPPORT_CHANNEL_ID)
+                if (event.address.conversation.id.split(';')[0] == indexExports._supportChannelId)
                     next();
                 else if (event.type === 'message' && !event.entities) {
                     const message = event;

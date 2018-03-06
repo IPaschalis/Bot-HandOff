@@ -9,17 +9,6 @@ import * as builder from 'botbuilder';
 let appInsights = require('applicationinsights');
 let handoff;
 
-const support_address = {
-    "channelId": "msteams",
-    "bot":{
-        "id": process.env.MICROSOFT_APP_ID,
-        "name": "MareraBot"
-    },
-    "conversation": {"isGroup": true, "id": process.env.SUPPORT_CHANNEL_ID},
-    "serviceUrl":"https://smba.trafficmanager.net/emea-client-ss.msg/"
-} 
-exports.support_address=support_address;
-
 let setup = (bot, app, isAgent, options) => {
 
     let mongooseProvider = null;
@@ -29,6 +18,8 @@ let setup = (bot, app, isAgent, options) => {
     let _textAnalyticsKey = null;
     let _appInsightsInstrumentationKey = null;
     let _customerStartHandoffCommand = null;
+    let _supportTeamId = null;
+    let _supportChannelId = null;
 
     handoff = new Handoff(bot, isAgent);
 
@@ -78,6 +69,32 @@ let setup = (bot, app, isAgent, options) => {
         _customerStartHandoffCommand = options.customerStartHandoffCommand || process.env.CUSTOMER_START_HANDOFF_COMMAND;
         exports._customerStartHandoffCommand = _customerStartHandoffCommand;
     }
+
+    if (!options.supportTeamId && !process.env.SUPPORT_TEAM_ID) {
+        console.warn('Bot-Handoff: No support Team Id entered.');
+    } else {
+        _supportTeamId = options.supportTeamId || process.env.SUPPORT_TEAM_ID;
+        exports._supportTeamId = _supportTeamId;
+    }
+
+    if (!options.supportChannelId && !process.env.SUPPORT_CHANNEL_ID) {
+        console.warn('Bot-Handoff: No support Team Id entered.');
+    } else {
+        _supportChannelId = options.supportChannelId || process.env.SUPPORT_CHANNEL_ID;
+        exports._supportChannelId = _supportChannelId;
+    }
+
+    const support_address = {
+        "channelId": "msteams",
+        "bot":{
+            "id": process.env.MICROSOFT_APP_ID,
+            "name": "MareraBot"
+        },
+        "conversation": {"isGroup": true, "id": _supportChannelId || _supportTeamId},
+        "serviceUrl":"https://smba.trafficmanager.net/emea-client-ss.msg/"
+    } 
+    exports.support_address=support_address;
+
 
     if (bot) {
         bot.use(
@@ -137,7 +154,7 @@ async function triggerHandoff(bot, session) {
         //await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
         await handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
         //send notification of a new help request in support 
-        var msg = new builder.Message().address(support_address as any);
+        var msg = new builder.Message().address(this.support_address as any);
 
         //if is member of team, also mention it
         let team_text = session.message.address.user.name;
