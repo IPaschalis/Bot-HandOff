@@ -254,6 +254,12 @@ For now, the easiest thing to do is to add your bot logic to the existing app.ts
 3. The customer bot is a simple echo bot. Type `help` to request an agent.
 4. As an agent, type `options` to see your available commands
 
+## Teams Channel modifications
+
+* Connection happens using conversation ID instead of userID, as there can be multiple conversations for one user in groups chat.
+* Prividing support Team ID and support Channel ID when setting up the handoff (fallback is process.env.SUPPORT_TEAM_ID, process.env.SUPPORT_CHANNEL_ID). These are used to send a message to the support Channel when a user triggers the handoff. In the case of triggerHandoff the message is a card with useful buttons to perform the available actions (Connect, Watch, View logs).
+* A Team schema for mongoDB to filter by Team first when listing conversations.
+
 ## How to customize this project
 
 Aside from providing your own bot logic, you'll likely want to build call center app for Agents, which will require:
