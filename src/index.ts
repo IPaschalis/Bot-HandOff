@@ -22,7 +22,6 @@ let setup = (bot, app, isAgent, options) => {
     let _customerStartHandoffCommand = null;
     let _supportTeamId = null;
     let _supportChannelId = null;
-    let _azureTableClient = null;
 
     handoff = new Handoff(bot, isAgent);
 
@@ -97,18 +96,6 @@ let setup = (bot, app, isAgent, options) => {
         "serviceUrl":"https://smba.trafficmanager.net/emea-client-ss.msg/"
     } 
     exports.support_address=support_address;
-
-    if (!options.azureTableClient) {
-        console.warn('Bot-Handoff: No azure table client entered.');
-    } else {
-        const _azureTableClient = new AzureTableClient(
-            options.azureTableClient.tableName,
-            options.azureTableClient.accountName,
-            options.azureTableClient.accountKey
-        );
-        exports._azureTableClient = _azureTableClient;
-    }
-
 
     if (bot) {
         bot.use(

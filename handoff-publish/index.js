@@ -13,7 +13,6 @@ const handoff_1 = require("./handoff");
 const commands_1 = require("./commands");
 const bodyParser = require("body-parser");
 const builder = require("botbuilder");
-const botbuilder_azure_1 = require("botbuilder-azure");
 //import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
@@ -28,7 +27,6 @@ let setup = (bot, app, isAgent, options) => {
     let _customerStartHandoffCommand = null;
     let _supportTeamId = null;
     let _supportChannelId = null;
-    let _azureTableClient = null;
     handoff = new handoff_1.Handoff(bot, isAgent);
     options = options || {};
     if (!options.mongodbProvider && !process.env.MONGODB_PROVIDER) {
@@ -100,13 +98,6 @@ let setup = (bot, app, isAgent, options) => {
         "serviceUrl": "https://smba.trafficmanager.net/emea-client-ss.msg/"
     };
     exports.support_address = support_address;
-    if (!options.azureTableClient) {
-        console.warn('Bot-Handoff: No azure table client entered.');
-    }
-    else {
-        const _azureTableClient = new botbuilder_azure_1.AzureTableClient(options.azureTableClient.tableName, options.azureTableClient.accountName, options.azureTableClient.accountKey);
-        exports._azureTableClient = _azureTableClient;
-    }
     if (bot) {
         bot.use(commands_1.commandsMiddleware(bot, handoff), handoff.routingMiddleware());
     }

@@ -225,21 +225,6 @@ async function disconnectCustomer(conversation: Conversation, handoff: any, sess
         //Send message to agent
         session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
 
-        // reset the customer stuck counter
-        indexExports._azureTableClient.retrieve(conversation.customer.user.id, 'userData', (err, res) => {
-            if (err) {
-                console.log(err);
-            } else {
-                const userData = res.data;
-                userData.stuck = 0;
-                indexExports._azureTableClient.insertOrReplace(conversation.customer.user.id, 'userData', userData, false, (err, res) => {
-                    if (err) {
-                        console.log(err);
-                    }
-                });
-            }
-        })
-
 		// do not inform customer of agent disconnect now
         //if (bot && conversation.state!=ConversationState.Watch) {
         //    //Send message to customer
