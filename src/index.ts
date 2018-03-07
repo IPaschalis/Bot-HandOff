@@ -5,9 +5,11 @@ import * as express from 'express';
 import * as bodyParser from 'body-parser';
 import * as teams from 'botbuilder-teams';
 import * as builder from 'botbuilder';
+import { AzureTableClient } from 'botbuilder-azure';
 //import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
+let support_address=null;
 
 let setup = (bot, app, isAgent, options) => {
 
@@ -20,6 +22,7 @@ let setup = (bot, app, isAgent, options) => {
     let _customerStartHandoffCommand = null;
     let _supportTeamId = null;
     let _supportChannelId = null;
+    let _azureTableClient = null;
 
     handoff = new Handoff(bot, isAgent);
 
@@ -84,7 +87,7 @@ let setup = (bot, app, isAgent, options) => {
         exports._supportChannelId = _supportChannelId;
     }
 
-    const support_address = {
+    support_address = {
         "channelId": "msteams",
         "bot":{
             "id": process.env.MICROSOFT_APP_ID,
@@ -94,6 +97,17 @@ let setup = (bot, app, isAgent, options) => {
         "serviceUrl":"https://smba.trafficmanager.net/emea-client-ss.msg/"
     } 
     exports.support_address=support_address;
+
+    if (!options.azureTableClient) {
+        console.warn('Bot-Handoff: No azure table client entered.');
+    } else {
+        const _azureTableClient = new AzureTableClient(
+            options.azureTableClient.tableName,
+            options.azureTableClient.accountName,
+            options.azureTableClient.accountKey
+        );
+        exports._azureTableClient = _azureTableClient;
+    }
 
 
     if (bot) {
@@ -154,7 +168,7 @@ async function triggerHandoff(bot, session) {
         //await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
         await handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
         //send notification of a new help request in support 
-        var msg = new builder.Message().address(this.support_address as any);
+        var msg = new builder.Message().address(support_address as any);
 
         //if is member of team, also mention it
         let team_text = session.message.address.user.name;

@@ -13,9 +13,11 @@ const handoff_1 = require("./handoff");
 const commands_1 = require("./commands");
 const bodyParser = require("body-parser");
 const builder = require("botbuilder");
+const botbuilder_azure_1 = require("botbuilder-azure");
 //import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
+let support_address = null;
 let setup = (bot, app, isAgent, options) => {
     let mongooseProvider = null;
     let _retainData = null;
@@ -26,6 +28,7 @@ let setup = (bot, app, isAgent, options) => {
     let _customerStartHandoffCommand = null;
     let _supportTeamId = null;
     let _supportChannelId = null;
+    let _azureTableClient = null;
     handoff = new handoff_1.Handoff(bot, isAgent);
     options = options || {};
     if (!options.mongodbProvider && !process.env.MONGODB_PROVIDER) {
@@ -87,7 +90,7 @@ let setup = (bot, app, isAgent, options) => {
         _supportChannelId = options.supportChannelId || process.env.SUPPORT_CHANNEL_ID;
         exports._supportChannelId = _supportChannelId;
     }
-    const support_address = {
+    support_address = {
         "channelId": "msteams",
         "bot": {
             "id": process.env.MICROSOFT_APP_ID,
@@ -97,6 +100,13 @@ let setup = (bot, app, isAgent, options) => {
         "serviceUrl": "https://smba.trafficmanager.net/emea-client-ss.msg/"
     };
     exports.support_address = support_address;
+    if (!options.azureTableClient) {
+        console.warn('Bot-Handoff: No azure table client entered.');
+    }
+    else {
+        const _azureTableClient = new botbuilder_azure_1.AzureTableClient(options.azureTableClient.tableName, options.azureTableClient.accountName, options.azureTableClient.accountKey);
+        exports._azureTableClient = _azureTableClient;
+    }
     if (bot) {
         bot.use(commands_1.commandsMiddleware(bot, handoff), handoff.routingMiddleware());
     }
@@ -151,7 +161,7 @@ function triggerHandoff(bot, session) {
             //await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             yield handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
             //send notification of a new help request in support 
-            var msg = new builder.Message().address(this.support_address);
+            var msg = new builder.Message().address(support_address);
             //if is member of team, also mention it
             let team_text = session.message.address.user.name;
             if (session.message.channelId == 'msteams' && message.address.conversation.isGroup) {
