@@ -5,13 +5,15 @@ import * as express from 'express';
 import * as bodyParser from 'body-parser';
 import * as teams from 'botbuilder-teams';
 import * as builder from 'botbuilder';
-import { AzureTableClient } from 'botbuilder-azure';
 //import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
 let support_address=null;
 
-let setup = (bot, app, isAgent, options) => {
+/**
+ * @param connector: to get the team name from connector.fetchTeamInfo
+ */
+let setup = (bot, app, connector, isAgent, options) => {
 
     let mongooseProvider = null;
     let _retainData = null;
@@ -23,7 +25,7 @@ let setup = (bot, app, isAgent, options) => {
     let _supportTeamId = null;
     let _supportChannelId = null;
 
-    handoff = new Handoff(bot, isAgent);
+    handoff = new Handoff(bot, connector, isAgent);
 
     options = options || {};
 
@@ -147,7 +149,7 @@ let setup = (bot, app, isAgent, options) => {
 }
 
 //this method is to trigger the handoff (useful for when you want a luis dialog to trigger the handoff, instead of the keyword)
-async function triggerHandoff(bot, session) {
+async function triggerHandoff(bot, connector, session) {
     const message = session.message;
     const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
     if (conversation.state == ConversationState.Bot) {
@@ -160,7 +162,15 @@ async function triggerHandoff(bot, session) {
         //if is member of team, also mention it
         let team_text = session.message.address.user.name;
         if ((session.message as any).channelId == 'msteams' && message.address.conversation.isGroup) {
-            team_text += ' from ' + session.message.sourceEvent.teamsTeamId;
+            //get the team name
+            const teamName = await new Promise((resolve, reject) => {
+                connector.fetchTeamInfo((<builder.IChatConnectorAddress>session.message.address).serviceUrl,
+                                              session.message.sourceEvent.team.id || null, (err, result) => {
+                    if (err) { reject(err); }
+                    else { resolve(result.name); }
+                })
+            })
+            team_text += ' from ' + teamName;
         }
         team_text += ' needs help. Last message:\n'+message.text;
 

@@ -17,7 +17,10 @@ const builder = require("botbuilder");
 let appInsights = require('applicationinsights');
 let handoff;
 let support_address = null;
-let setup = (bot, app, isAgent, options) => {
+/**
+ * @param connector: to get the team name from connector.fetchTeamInfo
+ */
+let setup = (bot, app, connector, isAgent, options) => {
     let mongooseProvider = null;
     let _retainData = null;
     let _directLineSecret = null;
@@ -27,7 +30,7 @@ let setup = (bot, app, isAgent, options) => {
     let _customerStartHandoffCommand = null;
     let _supportTeamId = null;
     let _supportChannelId = null;
-    handoff = new handoff_1.Handoff(bot, isAgent);
+    handoff = new handoff_1.Handoff(bot, connector, isAgent);
     options = options || {};
     if (!options.mongodbProvider && !process.env.MONGODB_PROVIDER) {
         throw new Error('Bot-Handoff: Mongo DB Connection String was not provided in setup options (mongodbProvider) or in the environment variables (MONGODB_PROVIDER)');
@@ -143,7 +146,7 @@ let setup = (bot, app, isAgent, options) => {
     }
 };
 //this method is to trigger the handoff (useful for when you want a luis dialog to trigger the handoff, instead of the keyword)
-function triggerHandoff(bot, session) {
+function triggerHandoff(bot, connector, session) {
     return __awaiter(this, void 0, void 0, function* () {
         const message = session.message;
         const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
@@ -156,7 +159,18 @@ function triggerHandoff(bot, session) {
             //if is member of team, also mention it
             let team_text = session.message.address.user.name;
             if (session.message.channelId == 'msteams' && message.address.conversation.isGroup) {
-                team_text += ' from ' + session.message.sourceEvent.teamsTeamId;
+                //get the team name
+                const teamName = yield new Promise((resolve, reject) => {
+                    connector.fetchTeamInfo(session.message.address.serviceUrl, session.message.sourceEvent.team.id || null, (err, result) => {
+                        if (err) {
+                            reject(err);
+                        }
+                        else {
+                            resolve(result.name);
+                        }
+                    });
+                });
+                team_text += ' from ' + teamName;
             }
             team_text += ' needs help. Last message:\n' + message.text;
             var herocard = new builder.HeroCard(session)

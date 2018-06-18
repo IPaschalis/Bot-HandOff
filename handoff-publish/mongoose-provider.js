@@ -64,10 +64,10 @@ exports.ConversationSchema = new mongoose.Schema({
 exports.ConversationModel = mongoose.model('Conversation', exports.ConversationSchema);
 // Teams collection. It will point to its Conversation IDs
 exports.TeamSchema = new mongoose.Schema({
-    teamId: { type: String, required: true },
+    teamId: { type: String, required: false },
     tenantId: { type: String, required: true },
     channel: { type: String, required: true, default: "Teams" },
-    teamName: { type: String, required: false },
+    teamName: { type: String, required: true },
     conversation: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Conversation'
@@ -188,7 +188,7 @@ class MongooseProvider {
             }
         });
     }
-    getConversation(by, customerAddress, teamId, tenantId) {
+    getConversation(by, customerAddress, teamId, teamName, tenantId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (by.customerName) {
                 const conversation = yield exports.ConversationModel.findOne({ 'customer.user.name': by.customerName });
@@ -208,7 +208,7 @@ class MongooseProvider {
             else if (by.customerConversationId) {
                 let conversation = yield exports.ConversationModel.findOne({ 'customer.conversation.id': by.customerConversationId });
                 if (!conversation && customerAddress) {
-                    conversation = yield this.createConversation(customerAddress, teamId, tenantId);
+                    conversation = yield this.createConversation(customerAddress, teamId, teamName, tenantId);
                 }
                 return conversation;
             }
@@ -235,12 +235,12 @@ class MongooseProvider {
             return conversations;
         });
     }
-    getTeamConversations(teamId) {
+    getTeamConversations(teamName) {
         return __awaiter(this, void 0, void 0, function* () {
             let conversations;
             try {
                 // find the coresponding conversations from the ids 
-                let model = yield exports.TeamModel.findOne({ teamId: teamId }).select('conversation').populate('conversation');
+                let model = yield exports.TeamModel.findOne({ teamName: teamName }).select('conversation').populate('conversation');
                 conversations = model.conversation;
                 console.log(conversations);
             }
@@ -264,7 +264,7 @@ class MongooseProvider {
             return teams;
         });
     }
-    createConversation(customerAddress, teamId, tenantId) {
+    createConversation(customerAddress, teamId, teamName, tenantId) {
         return __awaiter(this, void 0, void 0, function* () {
             let conversation = yield exports.ConversationModel.create({
                 customer: customerAddress,
@@ -273,13 +273,13 @@ class MongooseProvider {
             });
             // find the team this conversation belongs to
             if (teamId == null) {
-                teamId = 'Personal Chat';
-                tenantId = 'Many';
+                teamId = null;
+                teamName = 'Personal Chat';
             }
-            let team = yield exports.TeamModel.findOne({ 'teamId': teamId });
+            let team = yield exports.TeamModel.findOne({ 'teamName': teamName });
             // if it doesn't exist create it
             if (!team) {
-                team = yield this.createTeam(teamId, tenantId);
+                team = yield this.createTeam(teamId, teamName, tenantId);
             }
             //add the conversation to the team
             const success = yield this.updateTeam(team, conversation._id);
@@ -288,10 +288,11 @@ class MongooseProvider {
             return conversation;
         });
     }
-    createTeam(teamId, tenantId) {
+    createTeam(teamId, teamName, tenantId) {
         return __awaiter(this, void 0, void 0, function* () {
             return yield exports.TeamModel.create({
                 teamId: teamId,
+                teamName: teamName,
                 tenantId: tenantId,
                 conversation: []
             });

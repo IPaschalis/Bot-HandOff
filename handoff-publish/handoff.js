@@ -24,8 +24,9 @@ var ConversationState;
 ;
 class Handoff {
     // if customizing, pass in your own check for isAgent and your own versions of methods in defaultProvider
-    constructor(bot, isAgent, provider = new mongoose_provider_1.MongooseProvider()) {
+    constructor(bot, connector, isAgent, provider = new mongoose_provider_1.MongooseProvider()) {
         this.bot = bot;
+        this.connector = connector;
         this.isAgent = isAgent;
         this.provider = provider;
         this.connectCustomerToAgent = (by, nextState, agentAddress) => __awaiter(this, void 0, void 0, function* () {
@@ -41,8 +42,8 @@ class Handoff {
             let from = by.agentConversationId ? 'Agent' : 'Customer';
             return yield this.provider.addToTranscript(by, message, from);
         });
-        this.getConversation = (by, customerAddress, teamId, tenantId) => __awaiter(this, void 0, void 0, function* () {
-            return yield this.provider.getConversation(by, customerAddress, teamId, tenantId);
+        this.getConversation = (by, customerAddress, teamId, teamName, tenantId) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.getConversation(by, customerAddress, teamId, teamName, tenantId);
         });
         this.getCurrentConversations = () => __awaiter(this, void 0, void 0, function* () {
             return yield this.provider.getCurrentConversations();
@@ -50,8 +51,8 @@ class Handoff {
         this.getCurrentTeams = () => __awaiter(this, void 0, void 0, function* () {
             return yield this.provider.getCurrentTeams();
         });
-        this.getTeamConversations = (teamId) => __awaiter(this, void 0, void 0, function* () {
-            return yield this.provider.getTeamConversations(teamId);
+        this.getTeamConversations = (teamName) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.getTeamConversations(teamName);
         });
         this.provider.init();
     }
@@ -72,6 +73,7 @@ class Handoff {
                 // skip agent messages
                 if (event.address.conversation.id.split(';')[0] == indexExports._supportChannelId)
                     next();
+                // Not all messages from the bot are type message, we only want to record the actual messages  
                 else if (event.type === 'message' && !event.entities) {
                     const message = event;
                     const customerConversation = yield this.getConversation({ customerConversationId: event.address.conversation.id });
@@ -120,11 +122,25 @@ class Handoff {
             // method will either return existing conversation or a newly created conversation if this is first time we've heard from customer
             let teamId = null;
             let tenantId = null;
+            let teamName = null;
             if (session.message.channelId = "msteams") {
-                teamId = session.message.sourceEvent.teamsTeamId;
+                teamId = session.message.sourceEvent.teamsTeamId || null;
                 tenantId = teams.TeamsMessage.getTenantId(session.message);
+                // if in a team, get the name
+                if (message.address.conversation.isGroup) {
+                    teamName = yield new Promise((resolve, reject) => {
+                        this.connector.fetchTeamInfo(session.message.address.serviceUrl, teamId, (err, result) => {
+                            if (err) {
+                                reject(null);
+                            }
+                            else {
+                                resolve(result.name);
+                            }
+                        });
+                    });
+                }
             }
-            const conversation = yield this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
+            const conversation = yield this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, teamName, tenantId);
             yield this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             switch (conversation.state) {
                 case ConversationState.Bot:

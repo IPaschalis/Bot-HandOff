@@ -1,6 +1,5 @@
 import * as builder from 'botbuilder';
 import * as teams from 'botbuilder-teams';
-import * as azure from 'botbuilder-azure';
 import { Conversation, ConversationState, Handoff } from './handoff';
 const indexExports = require('./index');
 
@@ -135,12 +134,21 @@ async function customerCommand(session: builder.Session, next: Function, handoff
 
         //also pass the teamId
         let teamId = null;
+        let teamName = null;
         let tenantId = null;
         if ((session.message as any).channelId == "msteams") {
             teamId = session.message.sourceEvent.teamsTeamId;
+            teamName = await new Promise((resolve, reject) => {
+                this.connector.fetchTeamInfo((<builder.IChatConnectorAddress>session.message.address).serviceUrl,
+                                              session.message.sourceEvent.team.id || null, (err, result) => {
+                    if (err) { reject(err); }
+                    else { resolve(result.name); }
+                })
+            })
         }
 
-        const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
+        const conversation = await handoff.getConversation({ customerConversationId: message.address.conversation.id },
+                                                            message.address, teamId, teamName, tenantId);
         if (conversation.state == ConversationState.Bot) {
 
             //send notification of a new help request in support 
@@ -150,7 +158,7 @@ async function customerCommand(session: builder.Session, next: Function, handoff
             //if is member of team, also mention it
             let team_text = '';
             if ((session.message as any).channelId == 'msteams' && message.address.conversation.isGroup) {
-                team_text = ' from ' + session.message.sourceEvent.teamsTeamId;
+                team_text = ' from ' + teamName;
             }
 
             reply.text(session.message.address.user.name + team_text + ' needs help.');
@@ -214,7 +222,7 @@ async function currentTeams(handoff: Handoff): Promise<string> {
     let text = '### Current Teams \n';
     text += "Type list *Team name* to view the Team's conversations\n\n";
     teams.forEach(team => {
-        text += ` - ${team.teamId} \n`
+        text += ` - ${team.teamName} \n`
     });
 
     return text;

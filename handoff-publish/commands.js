@@ -125,11 +125,22 @@ function customerCommand(session, next, handoff, bot) {
             // lookup the conversation (create it if one doesn't already exist)
             //also pass the teamId
             let teamId = null;
+            let teamName = null;
             let tenantId = null;
             if (session.message.channelId == "msteams") {
                 teamId = session.message.sourceEvent.teamsTeamId;
+                teamName = yield new Promise((resolve, reject) => {
+                    this.connector.fetchTeamInfo(session.message.address.serviceUrl, session.message.sourceEvent.team.id || null, (err, result) => {
+                        if (err) {
+                            reject(err);
+                        }
+                        else {
+                            resolve(result.name);
+                        }
+                    });
+                });
             }
-            const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
+            const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, teamName, tenantId);
             if (conversation.state == handoff_1.ConversationState.Bot) {
                 //send notification of a new help request in support 
                 var reply = new teams.TeamsMessage();
@@ -137,7 +148,7 @@ function customerCommand(session, next, handoff, bot) {
                 //if is member of team, also mention it
                 let team_text = '';
                 if (session.message.channelId == 'msteams' && message.address.conversation.isGroup) {
-                    team_text = ' from ' + session.message.sourceEvent.teamsTeamId;
+                    team_text = ' from ' + teamName;
                 }
                 reply.text(session.message.address.user.name + team_text + ' needs help.');
                 bot.send(reply);
@@ -196,7 +207,7 @@ function currentTeams(handoff) {
         let text = '### Current Teams \n';
         text += "Type list *Team name* to view the Team's conversations\n\n";
         teams.forEach(team => {
-            text += ` - ${team.teamId} \n`;
+            text += ` - ${team.teamName} \n`;
         });
         return text;
     });

@@ -55,13 +55,14 @@ export interface Provider {
     queueCustomerForAgent: (by: By) => Promise<boolean>;
 
     // Get
-    getConversation: (by: By, customerAddress?: builder.IAddress, teamId?: String, tenantId?: String) => Promise<Conversation>;
+    getConversation: (by: By, customerAddress?: builder.IAddress, teamId?: String, teamName?: String, tenantId?: String) => Promise<Conversation>;
 }
 
 export class Handoff {
     // if customizing, pass in your own check for isAgent and your own versions of methods in defaultProvider
     constructor(
         private bot: builder.UniversalBot,
+        private connector: teams.TeamsChatConnector,
         public isAgent: (session: builder.Session) => boolean,
         private provider = new MongooseProvider()
     ) {
@@ -135,12 +136,25 @@ export class Handoff {
         // method will either return existing conversation or a newly created conversation if this is first time we've heard from customer
         let teamId = null;
         let tenantId = null;
+        let teamName = null;
         if ((session.message as any).channelId = "msteams") {
-            teamId = session.message.sourceEvent.teamsTeamId;
+            teamId = session.message.sourceEvent.teamsTeamId || null;
             tenantId = teams.TeamsMessage.getTenantId(session.message);
+
+            // if in a team, get the name
+            if (message.address.conversation.isGroup) {
+                teamName = await new Promise((resolve, reject) => {
+                    this.connector.fetchTeamInfo((<builder.IChatConnectorAddress>session.message.address).serviceUrl,
+                                                    teamId, (err, result) => {
+                        if (err) { reject(null); }
+                        else { resolve(result.name); }
+                    })
+                })
+            }
         }
 
-        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, tenantId);
+        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id },
+                                                        message.address, teamId, teamName, tenantId);
         await this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
 
         switch (conversation.state) {
@@ -199,8 +213,8 @@ export class Handoff {
         return await this.provider.addToTranscript(by, message, from);
     }
 
-    public getConversation = async (by: By, customerAddress?: builder.IAddress, teamId?: String, tenantId?: String) => {
-        return await this.provider.getConversation(by, customerAddress, teamId, tenantId);
+    public getConversation = async (by: By, customerAddress?: builder.IAddress, teamId?: String, teamName?: String, tenantId?: String) => {
+        return await this.provider.getConversation(by, customerAddress, teamId, teamName, tenantId);
     }
 
     public getCurrentConversations = async (): Promise<Conversation[]> => {
@@ -211,7 +225,7 @@ export class Handoff {
         return await this.provider.getCurrentTeams();
     }
 
-    public getTeamConversations = async (teamId: String): Promise<Conversation[]> => {
-        return await this.provider.getTeamConversations(teamId);
+    public getTeamConversations = async (teamName: String): Promise<Conversation[]> => {
+        return await this.provider.getTeamConversations(teamName);
     }
 };

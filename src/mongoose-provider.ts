@@ -62,10 +62,10 @@ export const ConversationModel = mongoose.model<ConversationDocument>('Conversat
 
 // Teams collection. It will point to its Conversation IDs
 export const TeamSchema = new mongoose.Schema({
-    teamId: {type: String, required: true},
+    teamId: {type: String, required: false},
     tenantId: {type: String, required:true},
     channel: {type:String, required:true, default:"Teams"},
-    teamName: {type: String, required: false},
+    teamName: {type: String, required: true},
     conversation: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Conversation'
@@ -185,7 +185,7 @@ export class MongooseProvider implements Provider {
         }
     }
 
-    async getConversation(by: By, customerAddress?: builder.IAddress, teamId?: String, tenantId?: String): Promise<Conversation> {
+    async getConversation(by: By, customerAddress?: builder.IAddress, teamId?: String, teamName?: String, tenantId?: String): Promise<Conversation> {
         if (by.customerName) {
             const conversation = await ConversationModel.findOne({ 'customer.user.name': by.customerName });
             return conversation;
@@ -199,7 +199,7 @@ export class MongooseProvider implements Provider {
         } else if (by.customerConversationId) {
             let conversation: Conversation = await ConversationModel.findOne({ 'customer.conversation.id': by.customerConversationId });
             if (!conversation && customerAddress) {
-                conversation = await this.createConversation(customerAddress, teamId, tenantId);
+                conversation = await this.createConversation(customerAddress, teamId, teamName, tenantId);
             }
             return conversation;
         } else if (by.bestChoice){
@@ -223,11 +223,11 @@ export class MongooseProvider implements Provider {
         return conversations;
     }
 
-    async getTeamConversations(teamId: String): Promise<Conversation[]> {
+    async getTeamConversations(teamName: String): Promise<Conversation[]> {
         let conversations;
         try {
             // find the coresponding conversations from the ids 
-            let model = await TeamModel.findOne({teamId:teamId}).select('conversation').populate('conversation');
+            let model = await TeamModel.findOne({teamName:teamName}).select('conversation').populate('conversation');
             conversations = model.conversation;
             console.log(conversations);
         } catch (error) {
@@ -248,7 +248,7 @@ export class MongooseProvider implements Provider {
         return teams;
     }
 
-    private async createConversation(customerAddress: builder.IAddress, teamId: String, tenantId: String): Promise<Conversation> {
+    private async createConversation(customerAddress: builder.IAddress, teamId: String, teamName: String,  tenantId: String): Promise<Conversation> {
         let conversation = await ConversationModel.create({
             customer: customerAddress,
             state: ConversationState.Bot,
@@ -257,13 +257,13 @@ export class MongooseProvider implements Provider {
 
         // find the team this conversation belongs to
         if (teamId == null) {
-            teamId = 'Personal Chat';
-            tenantId = 'Many';
+            teamId = null;
+            teamName = 'Personal Chat';
         }
-        let team = await TeamModel.findOne({ 'teamId': teamId});
+        let team = await TeamModel.findOne({'teamName': teamName});
         // if it doesn't exist create it
         if (!team) {
-            team = await this.createTeam(teamId, tenantId);
+            team = await this.createTeam(teamId, teamName, tenantId);
         }
         //add the conversation to the team
         const success = await this.updateTeam(team, conversation._id)
@@ -272,9 +272,10 @@ export class MongooseProvider implements Provider {
         return conversation;
     }
 
-    private async createTeam(teamId:String, tenantId:String): Promise<TeamDocument> {
+    private async createTeam(teamId:String, teamName:String, tenantId:String): Promise<TeamDocument> {
         return await TeamModel.create({
             teamId: teamId,
+            teamName: teamName,
             tenantId: tenantId,
             conversation: []
         });
