@@ -71,7 +71,7 @@ export const TeamSchema = new mongoose.Schema({
         ref: 'Conversation'
     }]
 })
-export interface TeamDocument extends Team, mongoose.Document { _id:String }
+export interface TeamDocument extends Team, mongoose.Document { }
 export const TeamModel = mongoose.model<TeamDocument>('Team', TeamSchema);
 
 export const BySchema = new mongoose.Schema({
@@ -236,6 +236,17 @@ export class MongooseProvider implements Provider {
         }
         return conversations;
     }
+    
+    async getConversationTeam(convId: mongoose.Types.ObjectId): Promise<Team> {
+        let team;
+        try {
+            team = await TeamModel.findOne({conversation: convId})
+        } catch(error) {
+            console.log('Failed getting conversation\'s team');
+            console.log(error);
+        }
+        return team
+    }
 
     async getCurrentTeams(): Promise<Team[]> {
         let teams;
@@ -284,7 +295,7 @@ export class MongooseProvider implements Provider {
     private async updateTeam(team:TeamDocument, convid:String): Promise<boolean> {
         team.conversation.push(convid);
         return new Promise<boolean>((resolve, reject) => {
-            TeamModel.findByIdAndUpdate(team._id, team).then((error) => {
+            TeamModel.findByIdAndUpdate((team as any)._id, team).then((error) => {
                 resolve(true);
             }).catch((error) => {
                 console.log('Failed to update team');

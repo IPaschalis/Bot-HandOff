@@ -228,4 +228,8 @@ export class Handoff {
     public getTeamConversations = async (teamName: String): Promise<Conversation[]> => {
         return await this.provider.getTeamConversations(teamName);
     }
+
+    public getConversationTeam = async (convId: String): Promise<Team> => {
+        return await this.provider.getConversationTeam(convId);
+    }
 };

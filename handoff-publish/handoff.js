@@ -54,6 +54,9 @@ class Handoff {
         this.getTeamConversations = (teamName) => __awaiter(this, void 0, void 0, function* () {
             return yield this.provider.getTeamConversations(teamName);
         });
+        this.getConversationTeam = (convId) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.provider.getConversationTeam(convId);
+        });
         this.provider.init();
     }
     routingMiddleware() {

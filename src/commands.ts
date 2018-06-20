@@ -45,14 +45,14 @@ async function agentCommand(
             return;
         case 'list':
             if (inputWords.length == 1)
-                session.send(await currentTeams(handoff));
+                await currentTeams(session, handoff);
             else {
                 //show the conversation of that Team
                 let team = inputWords.slice(1).join(' ');
                 let conversations = (await handoff.getTeamConversations(team));
                 if (!conversations) {
                     session.send(`Team '${team}' does not exist. Connect to one of the Teams below.`);
-                    session.send(await currentTeams(handoff));
+                    await currentTeams(session, handoff);
                 }
                 else
                     session.send(await currentConversations(handoff, conversations));
@@ -76,7 +76,8 @@ async function agentCommand(
                 message.address
             );
             if (waitingConversation) {
-                session.send(`You are connected to ${waitingConversation.customer.user.name} (${waitingConversation.customer.user.id})`);
+                const team = await handoff.getConversationTeam((waitingConversation as any)._id)
+                session.send(`You are connected to **${waitingConversation.customer.user.name}** (${waitingConversation.customer.user.id}) from **${team.teamName}**`);
             } else {
                 session.send("No customers waiting.");
             }
@@ -104,7 +105,8 @@ async function agentCommand(
                 newConversation = await handoff.connectCustomerToAgent({ customerConversationId: inputWords.slice(1).join(' ') }, ConversationState.Watch, message.address);
 
             if (newConversation) {
-                session.send(`You are connected to ${newConversation.customer.user.name} (${newConversation.customer.user.id})`);
+                const team = await handoff.getConversationTeam((newConversation as any)._id)
+                session.send(`You are connected to **${newConversation.customer.user.name}** (${newConversation.customer.user.id}) from **${team.teamName}**`);
             }
             else {
                 session.send("No customers waiting.");
@@ -162,7 +164,8 @@ async function customerCommand(session: builder.Session, next: Function, handoff
             }
 
             reply.text(session.message.address.user.name + team_text + ' needs help.');
-            bot.send(reply);
+            // temporarily disable to prevent spam TODO: enable again
+            //bot.send(reply);
 
             await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             await handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
@@ -175,7 +178,7 @@ async function customerCommand(session: builder.Session, next: Function, handoff
 }
 
 function sendAgentCommandOptions(session: builder.Session) {
-    const commands = ' ### Agent Options\n - Type *waiting* to connect to customer who has been waiting longest.\n - Type *connect { user id }* to connect to a specific conversation\n - Type *watch { user id }* to monitor a customer conversation\n - Type *history { user id }* to see a transcript of a given user\n - Type *list* to see a list of all current conversations.\n - Type *disconnect* while talking to a user to end a conversation.\n - Type *options* at any time to see these options again.';
+    const commands = '### Agent Options \n\n - Type *waiting* to connect to customer who has been waiting longest.\n\n - Type *connect { user id }* to connect to a specific conversation\n\n - Type *watch { user id }* to monitor a customer conversation\n\n - Type *history { user id }* to see a transcript of a given user\n\n - Type *list* to see a list of all current conversations.\n\n - Type *disconnect* while talking to a user to end a conversation.\n\n - Type *options* at any time to see these options again.';
     session.send(commands);
     return;
 }
@@ -213,19 +216,23 @@ async function currentConversations(handoff: Handoff, conversations?: Conversati
     return text;
 }
 
-async function currentTeams(handoff: Handoff): Promise<string> {
+async function currentTeams(session: builder.Session, handoff: Handoff): Promise<string[]> {
     const teams = await handoff.getCurrentTeams();
     if (teams.length === 0) {
-        return "No customers are in conversation.";
+        session.send("No customers are in conversation.");
+        return;
     }
 
-    let text = '### Current Teams \n';
-    text += "Type list *Team name* to view the Team's conversations\n\n";
+    let msg = new builder.Message()
+    let buttons = []
     teams.forEach(team => {
-        text += ` - ${team.teamName} \n`
+       buttons.push(builder.CardAction.imBack(session, "list "+team.teamName, team.teamName as builder.TextType));
     });
-
-    return text;
+    let herocard = new builder.HeroCard(session)
+        .text('Current Teams \n')
+        .buttons(buttons);
+    msg.addAttachment(herocard);
+    session.send(msg);
 }
 
 async function disconnectCustomer(conversation: Conversation, handoff: any, session: builder.Session, bot?: builder.UniversalBot) {

@@ -251,6 +251,19 @@ class MongooseProvider {
             return conversations;
         });
     }
+    getConversationTeam(convId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let team;
+            try {
+                team = yield exports.TeamModel.findOne({ conversation: convId });
+            }
+            catch (error) {
+                console.log('Failed getting conversation\'s team');
+                console.log(error);
+            }
+            return team;
+        });
+    }
     getCurrentTeams() {
         return __awaiter(this, void 0, void 0, function* () {
             let teams;
