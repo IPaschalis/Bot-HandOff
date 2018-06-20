@@ -38,9 +38,13 @@ function agentCommand(session, next, handoff, bot) {
     return __awaiter(this, void 0, void 0, function* () {
         const message = session.message;
         const conversation = yield handoff.getConversation({ agentConversationId: message.address.conversation.id });
-        const inputWords = message.text.split(/\s+/);
+        let inputWords = message.text.split(/\s+/);
         if (inputWords.length == 0)
             return;
+        // capture the adaptive card content and handle it here (for list conversations)
+        if (message && message.value) {
+            inputWords = message.value.action.split(/\s+/);
+        }
         // Commands to execute whether connected to a customer or not
         switch (inputWords[0]) {
             case 'options':
@@ -58,7 +62,7 @@ function agentCommand(session, next, handoff, bot) {
                         yield currentTeams(session, handoff);
                     }
                     else
-                        session.send(yield currentConversations(handoff, conversations));
+                        yield currentConversations(session, handoff, conversations);
                 }
                 return;
             case 'history':
@@ -171,7 +175,7 @@ function sendAgentCommandOptions(session) {
     session.send(commands);
     return;
 }
-function currentConversations(handoff, conversations) {
+function currentConversations(session, handoff, conversations) {
     return __awaiter(this, void 0, void 0, function* () {
         //if we didn't pass the conversations parameters, find all conversations
         if (!conversations)
@@ -179,27 +183,131 @@ function currentConversations(handoff, conversations) {
         if (conversations.length === 0) {
             return "No customers are in conversation.";
         }
-        let text = '### Current Conversations \n';
-        text += "Please use the conversation's ID to connect.\n\n";
+        let items = [];
         conversations.forEach(conversation => {
-            const starterText = ` - **${conversation.customer.user.name}** *(convID: ${conversation.customer.conversation.id})*`;
-            switch (handoff_1.ConversationState[conversation.state]) {
-                case 'Bot':
-                    text += starterText + ' is talking to the bot\n';
-                    break;
-                case 'Agent':
-                    text += starterText + ' is talking to an agent\n';
-                    break;
-                case 'Waiting':
-                    text += starterText + ' is waiting to talk to an agent\n';
-                    break;
-                case 'Watch':
-                    text += starterText + ' is being monitored by an agent\n';
-                    break;
-            }
-            text += `| **last msg:** ${new Date(conversation.transcript[conversation.transcript.length - 1].timestamp).toLocaleString()}\n`;
+            var stateText = {
+                Bot: "talking to bot",
+                Agent: "talking to agent",
+                Waiting: "waiting for agent",
+                Watch: "monitored by agent"
+            };
+            let item = {
+                "type": "ColumnSet",
+                "separator": true,
+                "columns": [
+                    {
+                        "type": "Column",
+                        "separator": true,
+                        "width": "stretch",
+                        "items": [{
+                                "type": "TextBlock",
+                                "weight": "bolder",
+                                "text": conversation.customer.user.name,
+                                "wrap": true
+                            },
+                            {
+                                "type": "TextBlock",
+                                "spacing": "none",
+                                "text": stateText[handoff_1.ConversationState[conversation.state]]
+                            },
+                            {
+                                "type": "TextBlock",
+                                "spacing": "none",
+                                "text": `last msg: ${new Date(conversation.transcript[conversation.transcript.length - 1].timestamp).toLocaleString()}`,
+                                "wrap": true
+                            }]
+                    },
+                    {
+                        "type": "Column",
+                        "width": "auto",
+                        "items": [{
+                                "color": "accent",
+                                "type": "TextBlock",
+                                "text": "[CONNECT]",
+                                "weight": "bolder"
+                            }],
+                        "selectAction": {
+                            "type": "Action.Submit",
+                            "title": "Action.Submit",
+                            "data": {
+                                "action": `connect ${conversation.customer.conversation.id}`,
+                            }
+                        }
+                    },
+                    {
+                        "type": "Column",
+                        "width": "auto",
+                        "items": [{
+                                "color": "accent",
+                                "type": "TextBlock",
+                                "text": "[WATCH]",
+                                "weight": "bolder"
+                            }],
+                        "selectAction": {
+                            "type": "Action.Submit",
+                            "title": "Action.Submit",
+                            "data": {
+                                "action": `watch ${conversation.customer.conversation.id}`,
+                            }
+                        }
+                    },
+                    {
+                        "type": "Column",
+                        "width": "auto",
+                        "items": [{
+                                "color": "accent",
+                                "type": "TextBlock",
+                                "text": "[HISTORY]",
+                                "weight": "bolder"
+                            }],
+                        "selectAction": {
+                            "type": "Action.Submit",
+                            "title": "Action.Submit",
+                            "data": {
+                                "action": `history ${conversation.customer.conversation.id}`,
+                            }
+                        }
+                    }
+                ]
+            };
+            items.push(item);
         });
-        return text;
+        var attachment = {
+            contentType: 'application/vnd.microsoft.card.adaptive',
+            content: {
+                $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+                type: "AdaptiveCard",
+                version: "1.0",
+                body: [{
+                        type: "Container",
+                        items: items
+                    }]
+            }
+        };
+        var msg = new builder.Message(session)
+            .addAttachment(attachment);
+        session.send(msg);
+        // let text = '### Current Conversations \n';
+        // text += "Please use the conversation's ID to connect.\n\n";
+        // conversations.forEach(conversation => {
+        //     const starterText = ` - **${conversation.customer.user.name}** *(convID: ${conversation.customer.conversation.id})*`;
+        //     switch (ConversationState[conversation.state]) {
+        //         case 'Bot':
+        //             text += starterText + ' is talking to the bot\n';
+        //             break;
+        //         case 'Agent':
+        //             text += starterText + ' is talking to an agent\n';
+        //             break;
+        //         case 'Waiting':
+        //             text += starterText + ' is waiting to talk to an agent\n';
+        //             break;
+        //         case 'Watch':
+        //             text += starterText + ' is being monitored by an agent\n';
+        //             break
+        //     }
+        //     text += `| **last msg:** ${new Date(conversation.transcript[conversation.transcript.length-1].timestamp).toLocaleString()}\n`;
+        // });
+        // return text;
     });
 }
 function currentTeams(session, handoff) {
