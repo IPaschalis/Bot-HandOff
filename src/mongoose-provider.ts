@@ -229,7 +229,6 @@ export class MongooseProvider implements Provider {
             // find the coresponding conversations from the ids 
             let model = await TeamModel.findOne({teamName:teamName}).select('conversation').populate('conversation');
             conversations = model.conversation;
-            console.log(conversations);
         } catch (error) {
             console.log('Failed loading conversations');
             console.log(error);
@@ -237,10 +236,11 @@ export class MongooseProvider implements Provider {
         return conversations;
     }
     
-    async getConversationTeam(convId: mongoose.Types.ObjectId): Promise<Team> {
+    async getConversationTeam(convId: string): Promise<Team> {
         let team;
+        const convIdObj = mongoose.Types.ObjectId(convId)
         try {
-            team = await TeamModel.findOne({conversation: convId})
+            team = await TeamModel.findOne({conversation: convIdObj})
         } catch(error) {
             console.log('Failed getting conversation\'s team');
             console.log(error);

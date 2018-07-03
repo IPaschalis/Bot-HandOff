@@ -242,7 +242,6 @@ class MongooseProvider {
                 // find the coresponding conversations from the ids 
                 let model = yield exports.TeamModel.findOne({ teamName: teamName }).select('conversation').populate('conversation');
                 conversations = model.conversation;
-                console.log(conversations);
             }
             catch (error) {
                 console.log('Failed loading conversations');
@@ -254,8 +253,9 @@ class MongooseProvider {
     getConversationTeam(convId) {
         return __awaiter(this, void 0, void 0, function* () {
             let team;
+            const convIdObj = mongoose.Types.ObjectId(convId);
             try {
-                team = yield exports.TeamModel.findOne({ conversation: convId });
+                team = yield exports.TeamModel.findOne({ conversation: convIdObj });
             }
             catch (error) {
                 console.log('Failed getting conversation\'s team');

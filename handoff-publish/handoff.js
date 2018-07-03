@@ -76,7 +76,6 @@ class Handoff {
                 // skip agent messages
                 if (event.address.conversation.id.split(';')[0] == indexExports._supportChannelId)
                     next();
-                // Not all messages from the bot are type message, we only want to record the actual messages  
                 else if (event.type === 'message' && !event.entities) {
                     const message = event;
                     const customerConversation = yield this.getConversation({ customerConversationId: event.address.conversation.id });
