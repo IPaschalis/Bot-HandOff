@@ -134,8 +134,9 @@ function customerCommand(session, next, handoff, bot) {
             let teamId = null;
             let teamName = null;
             let tenantId = null;
-            if (session.message.channelId == "msteams") {
+            if (session.message.address.channelId == "msteams") {
                 teamId = session.message.sourceEvent.teamsTeamId;
+                tenantId = teams.TeamsMessage.getTenantId(session.message);
                 teamName = yield new Promise((resolve, reject) => {
                     this.connector.fetchTeamInfo(session.message.address.serviceUrl, session.message.sourceEvent.team.id || null, (err, result) => {
                         if (err) {

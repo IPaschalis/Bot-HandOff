@@ -137,7 +137,7 @@ export class Handoff {
         let teamId = null;
         let tenantId = null;
         let teamName = null;
-        if ((session.message as any).channelId = "msteams") {
+        if ((session.message as any).address.channelId == "msteams") {
             teamId = session.message.sourceEvent.teamsTeamId || null;
             tenantId = teams.TeamsMessage.getTenantId(session.message);
 

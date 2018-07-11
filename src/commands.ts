@@ -143,8 +143,9 @@ async function customerCommand(session: builder.Session, next: Function, handoff
         let teamId = null;
         let teamName = null;
         let tenantId = null;
-        if ((session.message as any).channelId == "msteams") {
+        if ((session.message as any).address.channelId == "msteams") {
             teamId = session.message.sourceEvent.teamsTeamId;
+            tenantId = teams.TeamsMessage.getTenantId(session.message);
             teamName = await new Promise((resolve, reject) => {
                 this.connector.fetchTeamInfo((<builder.IChatConnectorAddress>session.message.address).serviceUrl,
                                               session.message.sourceEvent.team.id || null, (err, result) => {

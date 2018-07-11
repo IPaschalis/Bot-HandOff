@@ -65,7 +65,7 @@ exports.ConversationModel = mongoose.model('Conversation', exports.ConversationS
 // Teams collection. It will point to its Conversation IDs
 exports.TeamSchema = new mongoose.Schema({
     teamId: { type: String, required: false },
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: false },
     channel: { type: String, required: true, default: "Teams" },
     teamName: { type: String, required: true },
     conversation: [{
