@@ -138,24 +138,38 @@ export class Handoff {
         let tenantId = null;
         let teamName = null;
         if ((session.message as any).address.channelId == "msteams") {
-            teamId = session.message.sourceEvent.teamsTeamId || null;
+            teamId = session.message.sourceEvent.team.id || null;
             tenantId = teams.TeamsMessage.getTenantId(session.message);
 
             // if in a team, get the name
             if (message.address.conversation.isGroup) {
-                teamName = await new Promise((resolve, reject) => {
-                    this.connector.fetchTeamInfo((<builder.IChatConnectorAddress>session.message.address).serviceUrl,
-                                                    teamId, (err, result) => {
-                        if (err) { reject(null); }
-                        else { resolve(result.name); }
-                    })
-                })
+                try {
+                    teamName = await new Promise((resolve, reject) => {
+                        this.connector.fetchTeamInfo((<builder.IChatConnectorAddress>session.message.address).serviceUrl,
+                                                        teamId, (err, result) => {
+                            if (err) { reject(err); }
+                            else { resolve(result.name); }
+                        })
+                    });
+                } catch (e) {
+                    console.log(`Error getting team name: ${e}`);
+                }
             }
         }
 
-        const conversation = await this.getConversation({ customerConversationId: message.address.conversation.id },
-                                                        message.address, teamId, teamName, tenantId);
-        await this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
+        let conversation;
+        try {
+            conversation = await this.getConversation({ customerConversationId: message.address.conversation.id },
+                                                            message.address, teamId, teamName, tenantId);
+        } catch(e) {
+            console.log(`Error getting conversation: ${e}`);
+        }
+
+        try {
+            await this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
+        } catch(e) {
+            console.log(`Error adding to transcript: ${e}`);
+        }
 
         switch (conversation.state) {
             case ConversationState.Bot:

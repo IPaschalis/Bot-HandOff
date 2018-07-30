@@ -38,7 +38,7 @@ let setup = (bot, app, connector, isAgent, options) => {
     else {
         _mongodbProvider = options.mongodbProvider || process.env.MONGODB_PROVIDER;
         mongooseProvider = new mongoose_provider_1.MongooseProvider();
-        mongoose_provider_1.mongoose.connect(_mongodbProvider);
+        mongoose_provider_1.mongoose.connect(_mongodbProvider, { useNewUrlParser: true });
     }
     if (!options.directlineSecret && !process.env.MICROSOFT_DIRECTLINE_SECRET) {
         throw new Error('Bot-Handoff: Microsoft Bot Builder Direct Line Secret was not provided in setup options (directlineSecret) or in the environment variables (MICROSOFT_DIRECTLINE_SECRET)');
@@ -47,14 +47,14 @@ let setup = (bot, app, connector, isAgent, options) => {
         _directLineSecret = options.directlineSecret || process.env.MICROSOFT_DIRECTLINE_SECRET;
     }
     if (!options.textAnalyticsKey && !process.env.CG_SENTIMENT_KEY) {
-        console.warn('Bot-Handoff: Microsoft Cognitive Services Text Analytics Key was not provided in setup options (textAnalyticsKey) or in the environment variables (CG_SENTIMENT_KEY). Sentiment will not be analysed in the transcript, the score will be recorded as -1 for all text.');
+        // console.warn('Bot-Handoff: Microsoft Cognitive Services Text Analytics Key was not provided in setup options (textAnalyticsKey) or in the environment variables (CG_SENTIMENT_KEY). Sentiment will not be analysed in the transcript, the score will be recorded as -1 for all text.');
     }
     else {
         _textAnalyticsKey = options.textAnalyticsKey || process.env.CG_SENTIMENT_KEY;
         exports._textAnalyticsKey = _textAnalyticsKey;
     }
     if (!options.appInsightsInstrumentationKey && !process.env.APPINSIGHTS_INSTRUMENTATIONKEY) {
-        console.warn('Bot-Handoff: Microsoft Application Insights Instrumentation Key was not provided in setup options (appInsightsInstrumentationKey) or in the environment variables (APPINSIGHTS_INSTRUMENTATIONKEY). The conversation object will not be logged to Application Insights.');
+        // console.warn('Bot-Handoff: Microsoft Application Insights Instrumentation Key was not provided in setup options (appInsightsInstrumentationKey) or in the environment variables (APPINSIGHTS_INSTRUMENTATIONKEY). The conversation object will not be logged to Application Insights.');
     }
     else {
         _appInsightsInstrumentationKey = options.appInsightsInstrumentationKey || process.env.APPINSIGHTS_INSTRUMENTATIONKEY;

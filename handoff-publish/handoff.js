@@ -76,6 +76,7 @@ class Handoff {
                 // skip agent messages
                 if (event.address.conversation.id.split(';')[0] == indexExports._supportChannelId)
                     next();
+                // Not all messages from the bot are type message, we only want to record the actual messages  
                 else if (event.type === 'message' && !event.entities) {
                     const message = event;
                     const customerConversation = yield this.getConversation({ customerConversationId: event.address.conversation.id });
@@ -126,24 +127,40 @@ class Handoff {
             let tenantId = null;
             let teamName = null;
             if (session.message.address.channelId == "msteams") {
-                teamId = session.message.sourceEvent.teamsTeamId || null;
+                teamId = session.message.sourceEvent.team.id || null;
                 tenantId = teams.TeamsMessage.getTenantId(session.message);
                 // if in a team, get the name
                 if (message.address.conversation.isGroup) {
-                    teamName = yield new Promise((resolve, reject) => {
-                        this.connector.fetchTeamInfo(session.message.address.serviceUrl, teamId, (err, result) => {
-                            if (err) {
-                                reject(null);
-                            }
-                            else {
-                                resolve(result.name);
-                            }
+                    try {
+                        teamName = yield new Promise((resolve, reject) => {
+                            this.connector.fetchTeamInfo(session.message.address.serviceUrl, teamId, (err, result) => {
+                                if (err) {
+                                    reject(err);
+                                }
+                                else {
+                                    resolve(result.name);
+                                }
+                            });
                         });
-                    });
+                    }
+                    catch (e) {
+                        console.log(`Error getting team name: ${e}`);
+                    }
                 }
             }
-            const conversation = yield this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, teamName, tenantId);
-            yield this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
+            let conversation;
+            try {
+                conversation = yield this.getConversation({ customerConversationId: message.address.conversation.id }, message.address, teamId, teamName, tenantId);
+            }
+            catch (e) {
+                console.log(`Error getting conversation: ${e}`);
+            }
+            try {
+                yield this.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
+            }
+            catch (e) {
+                console.log(`Error adding to transcript: ${e}`);
+            }
             switch (conversation.state) {
                 case ConversationState.Bot:
                     return next();
