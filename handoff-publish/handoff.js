@@ -62,8 +62,8 @@ class Handoff {
     routingMiddleware() {
         return {
             botbuilder: (session, next) => {
-                // Pass incoming messages to routing method
-                if (session.message.type === 'message') {
+                // Pass incoming messages to routing method. They must have text or attachments
+                if (session.message.type === 'message' && (session.message.text != "" || session.message.attachments)) {
                     this.routeMessage(session, next);
                 }
                 else {
