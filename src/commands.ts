@@ -198,6 +198,8 @@ async function currentConversations(session:builder.Session, handoff: Handoff, c
         return "No customers are in conversation.";
     }
 
+    // keep the last 10 (mst recent) to avoid errors about too big card
+    conversations = conversations.slice(-10).reverse();
     let items = []
     conversations.forEach(conversation => {
         var stateText = {

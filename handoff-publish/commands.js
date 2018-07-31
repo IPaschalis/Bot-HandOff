@@ -184,6 +184,8 @@ function currentConversations(session, handoff, conversations) {
         if (conversations.length === 0) {
             return "No customers are in conversation.";
         }
+        // keep the last 10 (mst recent) to avoid errors about too big card
+        conversations = conversations.slice(-10).reverse();
         let items = [];
         conversations.forEach(conversation => {
             var stateText = {
