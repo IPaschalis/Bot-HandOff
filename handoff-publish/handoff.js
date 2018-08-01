@@ -79,7 +79,13 @@ class Handoff {
                 // Not all messages from the bot are type message, we only want to record the actual messages  
                 else if (event.type === 'message' && !event.entities) {
                     const message = event;
-                    const customerConversation = yield this.getConversation({ customerConversationId: event.address.conversation.id });
+                    let customerConversation;
+                    try {
+                        customerConversation = yield this.getConversation({ customerConversationId: event.address.conversation.id }, event.address);
+                    }
+                    catch (err) {
+                        console.log(err);
+                    }
                     // send message to agent observing conversation
                     if (customerConversation.state === ConversationState.Watch) {
                         this.bot.send(new builder.Message().address(customerConversation.agent).text(message.text));
