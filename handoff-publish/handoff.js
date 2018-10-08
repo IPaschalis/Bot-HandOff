@@ -169,13 +169,17 @@ class Handoff {
             catch (e) {
                 console.log(`Error adding to transcript: ${e}`);
             }
+            let textToSend = `**${session.message.address.user.name}** from **${teamName || 'Private Chat'}**: \n\n ${session.message.text}`;
+            session.message.text;
+            if (teamName) {
+            }
             switch (conversation.state) {
                 case ConversationState.Bot:
                     return next();
                 case ConversationState.Waiting:
                     return next();
                 case ConversationState.Watch:
-                    this.bot.send(new builder.Message().address(conversation.agent).text(message.text));
+                    this.bot.send(new builder.Message().address(conversation.agent).text(textToSend));
                     return next();
                 case ConversationState.Agent:
                     if (!conversation.agent) {
@@ -183,7 +187,7 @@ class Handoff {
                         console.log("No agent address present while customer in state Agent");
                         return;
                     }
-                    this.bot.send(new builder.Message().address(conversation.agent).text(message.text));
+                    this.bot.send(new builder.Message().address(conversation.agent).text(textToSend));
                     return;
             }
         });

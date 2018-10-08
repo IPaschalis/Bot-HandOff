@@ -133,6 +133,7 @@ async function agentCommand(
     }
 }
 
+//TODO: fix undefined "this" error
 async function customerCommand(session: builder.Session, next: Function, handoff: Handoff, bot:builder.UniversalBot) {
     const message = session.message;
     const customerStartHandoffCommandRegex = new RegExp("^" + indexExports._customerStartHandoffCommand + "$", "gi");
@@ -353,10 +354,12 @@ async function currentTeams(session: builder.Session, handoff: Handoff): Promise
 }
 
 async function disconnectCustomer(conversation: Conversation, handoff: any, session: builder.Session, bot?: builder.UniversalBot) {
-    if (await handoff.connectCustomerToBot({ customerConversationId: conversation.customer.conversation.id })) {
+    try {
+        const isconnected = await handoff.connectCustomerToBot({ customerConversationId: conversation.customer.conversation.id })
         //Send message to agent
-        session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
-
+        if (isconnected) {
+            session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
+        }
 		// do not inform customer of agent disconnect now
         //if (bot && conversation.state!=ConversationState.Watch) {
         //    //Send message to customer
@@ -365,5 +368,11 @@ async function disconnectCustomer(conversation: Conversation, handoff: any, sess
         //        .text('Agent has disconnected, you are now speaking to the bot.');
         //    bot.send(reply);
         //}
+    } catch (err) {
+        if(err.message === "Cannot read property 'customer' of null") {
+            session.send("No customer is connected to the bot.");
+        } else {
+            session.send(err.message);
+        }
     }
 }

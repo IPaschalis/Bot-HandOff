@@ -5,6 +5,7 @@ import * as express from 'express';
 import * as bodyParser from 'body-parser';
 import * as teams from 'botbuilder-teams';
 import * as builder from 'botbuilder';
+import * as config from 'config';
 //import * as cors from 'cors';
 let appInsights = require('applicationinsights');
 let handoff;
@@ -91,7 +92,7 @@ let setup = (bot, app, connector, isAgent, options) => {
     support_address = {
         "channelId": "msteams",
         "bot":{
-            "id": process.env.MICROSOFT_APP_ID,
+            "id": config.MICROSOFT_APP_ID,
             "name": "MareraBot"
         },
         "conversation": {"isGroup": true, "id": _supportChannelId || _supportTeamId},

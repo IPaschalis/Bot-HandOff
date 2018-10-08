@@ -4,6 +4,8 @@ import * as request from 'request';
 import * as _ from 'lodash';
 import mongoose = require('mongoose');
 mongoose.Promise = bluebird;
+// fix deprecation warning
+mongoose.set('useFindAndModify', false);
 
 import { By, Conversation, Team, Provider, ConversationState } from './handoff';
 

@@ -14,6 +14,8 @@ const _ = require("lodash");
 const mongoose = require("mongoose");
 exports.mongoose = mongoose;
 mongoose.Promise = bluebird;
+// fix deprecation warning
+mongoose.set('useFindAndModify', false);
 const handoff_1 = require("./handoff");
 const indexExports = require('./index');
 // -------------------

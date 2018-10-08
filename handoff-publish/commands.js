@@ -334,9 +334,12 @@ function currentTeams(session, handoff) {
 }
 function disconnectCustomer(conversation, handoff, session, bot) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (yield handoff.connectCustomerToBot({ customerConversationId: conversation.customer.conversation.id })) {
+        try {
+            const isconnected = yield handoff.connectCustomerToBot({ customerConversationId: conversation.customer.conversation.id });
             //Send message to agent
-            session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
+            if (isconnected) {
+                session.send(`Customer ${conversation.customer.user.name} (${conversation.customer.user.id}) is now connected to the bot.`);
+            }
             // do not inform customer of agent disconnect now
             //if (bot && conversation.state!=ConversationState.Watch) {
             //    //Send message to customer
@@ -345,6 +348,14 @@ function disconnectCustomer(conversation, handoff, session, bot) {
             //        .text('Agent has disconnected, you are now speaking to the bot.');
             //    bot.send(reply);
             //}
+        }
+        catch (err) {
+            if (err.message === "Cannot read property 'customer' of null") {
+                session.send("No customer is connected to the bot.");
+            }
+            else {
+                session.send(err.message);
+            }
         }
     });
 }
