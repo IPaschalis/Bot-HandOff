@@ -8,10 +8,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+// tslint:disable: interface-name
 const builder = require("botbuilder");
 const mongoose_provider_1 = require("./mongoose-provider");
 const teams = require("botbuilder-teams");
-const indexExports = require('./index');
+const indexExports = require("./index");
 // Options for state of a conversation
 // Customer talking to bot, waiting for next available agent or talking to an agent
 var ConversationState;
@@ -21,7 +22,6 @@ var ConversationState;
     ConversationState[ConversationState["Agent"] = 2] = "Agent";
     ConversationState[ConversationState["Watch"] = 3] = "Watch";
 })(ConversationState = exports.ConversationState || (exports.ConversationState = {}));
-;
 class Handoff {
     // if customizing, pass in your own check for isAgent and your own versions of methods in defaultProvider
     constructor(bot, connector, isAgent, provider = new mongoose_provider_1.MongooseProvider()) {
@@ -39,7 +39,7 @@ class Handoff {
             return yield this.provider.queueCustomerForAgent(by);
         });
         this.addToTranscript = (by, message) => __awaiter(this, void 0, void 0, function* () {
-            let from = by.agentConversationId ? 'Agent' : 'Customer';
+            const from = by.agentConversationId ? "Agent" : "Customer";
             return yield this.provider.addToTranscript(by, message, from);
         });
         this.getConversation = (by, customerAddress, teamId, teamName, tenantId) => __awaiter(this, void 0, void 0, function* () {
@@ -63,21 +63,22 @@ class Handoff {
         return {
             botbuilder: (session, next) => {
                 // Pass incoming messages to routing method. They must have text or attachments
-                if (session.message.type === 'message' && (session.message.text != "" || session.message.attachments)) {
+                if (session.message.type === "message" && (session.message.text !== "" || session.message.attachments)) {
                     this.routeMessage(session, next);
                 }
                 else {
-                    // allow messages of non 'message' type through 
+                    // allow messages of non 'message' type through
                     next();
                 }
             },
             send: (event, next) => __awaiter(this, void 0, void 0, function* () {
                 // Messages sent from the bot do not need to be routed
                 // skip agent messages
-                if (event.address.conversation.id.split(';')[0] == indexExports._supportChannelId)
+                if (event.address.conversation.id.split(";")[0] === indexExports._supportChannelId) {
                     next();
-                // Not all messages from the bot are type message, we only want to record the actual messages  
-                else if (event.type === 'message' && !event.entities) {
+                }
+                else if (event.type === "message" && !event.entities) {
+                    // Not all messages from the bot are type message, we only want to record the actual messages
                     const message = event;
                     let customerConversation;
                     try {
@@ -93,11 +94,25 @@ class Handoff {
                     this.transcribeMessageFromBot(event, next);
                 }
                 else {
-                    //If not a message (text), just send to user without transcribing
+                    // If not a message (text), just send to user without transcribing
                     next();
                 }
-            })
+            }),
         };
+    }
+    getCustomerTranscript(by, session) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const customerConversation = yield this.getConversation(by);
+            if (customerConversation) {
+                let text = "";
+                // only return the last 10
+                customerConversation.transcript.slice(-10).forEach((transcriptLine) => text += `**${transcriptLine.from}** (*${new Date(transcriptLine.timestamp).toLocaleString()} UTC*): ${transcriptLine.text}\n\n`);
+                session.send(text);
+            }
+            else {
+                session.send("No Transcript to show. Try entering a username or try again when connected to a customer");
+            }
+        });
     }
     routeMessage(session, next) {
         if (this.isAgent(session)) {
@@ -113,16 +128,17 @@ class Handoff {
             const conversation = yield this.getConversation({ agentConversationId: message.address.conversation.id }, message.address);
             yield this.addToTranscript({ agentConversationId: message.address.conversation.id }, message);
             // if the agent is not in conversation, no further routing is necessary
-            if (!conversation)
+            if (!conversation) {
                 return;
-            //if state of conversation is not 2, don't route agent message
+            }
+            // if state of conversation is not 2, don't route agent message
             if (conversation.state !== ConversationState.Agent) {
                 // error state -- should not happen
                 session.send("Shouldn't be in this state - agent should have been cleared out.");
                 return;
             }
             // send text that agent typed to the customer they are in conversation with
-            this.bot.send(new builder.Message().address(conversation.customer).text(message.text).addEntity({ "agent": true }));
+            this.bot.send(new builder.Message().address(conversation.customer).text(message.text).addEntity({ agent: true }));
         });
     }
     routeCustomerMessage(session, next) {
@@ -132,7 +148,7 @@ class Handoff {
             let teamId = null;
             let tenantId = null;
             let teamName = null;
-            if (session.message.address.channelId == "msteams") {
+            if (session.message.address.channelId === "msteams") {
                 if (session.message.sourceEvent.team && session.message.sourceEvent.team.id) {
                     teamId = session.message.sourceEvent.team.id;
                 }
@@ -169,7 +185,7 @@ class Handoff {
             catch (e) {
                 console.log(`Error adding to transcript: ${e}`);
             }
-            let textToSend = `**${session.message.address.user.name}** from **${teamName || 'Private Chat'}**: \n\n ${session.message.text}`;
+            const textToSend = `**${session.message.address.user.name}** from **${teamName || "Private Chat"}**: \n\n ${session.message.text}`;
             session.message.text;
             if (teamName) {
             }
@@ -194,24 +210,9 @@ class Handoff {
     }
     // These methods are wrappers around provider which handles data
     transcribeMessageFromBot(message, next) {
-        this.provider.addToTranscript({ customerConversationId: message.address.conversation.id }, message, 'Bot');
+        this.provider.addToTranscript({ customerConversationId: message.address.conversation.id }, message, "Bot");
         next();
-    }
-    getCustomerTranscript(by, session) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const customerConversation = yield this.getConversation(by);
-            if (customerConversation) {
-                let text = '';
-                // only return the last 10
-                customerConversation.transcript.slice(-10).forEach(transcriptLine => text += `**${transcriptLine.from}** (*${new Date(transcriptLine.timestamp).toLocaleString()} UTC*): ${transcriptLine.text}\n\n`);
-                session.send(text);
-            }
-            else {
-                session.send('No Transcript to show. Try entering a username or try again when connected to a customer');
-            }
-        });
     }
 }
 exports.Handoff = Handoff;
-;
 //# sourceMappingURL=handoff.js.map

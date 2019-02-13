@@ -14,14 +14,15 @@ const commands_1 = require("./commands");
 const bodyParser = require("body-parser");
 const builder = require("botbuilder");
 const config = require("config");
-//import * as cors from 'cors';
-let appInsights = require('applicationinsights');
+// import * as cors from 'cors';
+const appInsights = require("applicationinsights");
 let handoff;
+// tslint:disable-next-line: variable-name
 let support_address = null;
 /**
  * @param connector: to get the team name from connector.fetchTeamInfo
  */
-let setup = (bot, app, connector, isAgent, options) => {
+const setup = (bot, app, connector, isAgent, options) => {
     let mongooseProvider = null;
     let _retainData = null;
     let _directLineSecret = null;
@@ -34,7 +35,7 @@ let setup = (bot, app, connector, isAgent, options) => {
     handoff = new handoff_1.Handoff(bot, connector, isAgent);
     options = options || {};
     if (!options.mongodbProvider && !process.env.MONGODB_PROVIDER) {
-        throw new Error('Bot-Handoff: Mongo DB Connection String was not provided in setup options (mongodbProvider) or in the environment variables (MONGODB_PROVIDER)');
+        throw new Error("Bot-Handoff: Mongo DB Connection String was not provided in setup options (mongodbProvider) or in the environment variables (MONGODB_PROVIDER)");
     }
     else {
         _mongodbProvider = options.mongodbProvider || process.env.MONGODB_PROVIDER;
@@ -42,7 +43,7 @@ let setup = (bot, app, connector, isAgent, options) => {
         mongoose_provider_1.mongoose.connect(_mongodbProvider, { useNewUrlParser: true });
     }
     if (!options.directlineSecret && !process.env.MICROSOFT_DIRECTLINE_SECRET) {
-        throw new Error('Bot-Handoff: Microsoft Bot Builder Direct Line Secret was not provided in setup options (directlineSecret) or in the environment variables (MICROSOFT_DIRECTLINE_SECRET)');
+        throw new Error("Bot-Handoff: Microsoft Bot Builder Direct Line Secret was not provided in setup options (directlineSecret) or in the environment variables (MICROSOFT_DIRECTLINE_SECRET)");
     }
     else {
         _directLineSecret = options.directlineSecret || process.env.MICROSOFT_DIRECTLINE_SECRET;
@@ -70,7 +71,7 @@ let setup = (bot, app, connector, isAgent, options) => {
         exports._retainData = _retainData;
     }
     if (!options.customerStartHandoffCommand && !process.env.CUSTOMER_START_HANDOFF_COMMAND) {
-        console.warn('Bot-Handoff: The customer command to start the handoff was not provided in setup options (customerStartHandoffCommand) or in the environment variables (CUSTOMER_START_HANDOFF_COMMAND). The default command will be set to help. Regex is used on this command to make sure the activation of the handoff only works if the user types the exact phrase provided in this property.');
+        console.warn("Bot-Handoff: The customer command to start the handoff was not provided in setup options (customerStartHandoffCommand) or in the environment variables (CUSTOMER_START_HANDOFF_COMMAND). The default command will be set to help. Regex is used on this command to make sure the activation of the handoff only works if the user types the exact phrase provided in this property.");
         _customerStartHandoffCommand = "help";
         exports._customerStartHandoffCommand = _customerStartHandoffCommand;
     }
@@ -79,27 +80,27 @@ let setup = (bot, app, connector, isAgent, options) => {
         exports._customerStartHandoffCommand = _customerStartHandoffCommand;
     }
     if (!options.supportTeamId && !process.env.SUPPORT_TEAM_ID) {
-        console.warn('Bot-Handoff: No support Team Id entered.');
+        console.warn("Bot-Handoff: No support Team Id entered.");
     }
     else {
         _supportTeamId = options.supportTeamId || process.env.SUPPORT_TEAM_ID;
         exports._supportTeamId = _supportTeamId;
     }
     if (!options.supportChannelId && !process.env.SUPPORT_CHANNEL_ID) {
-        console.warn('Bot-Handoff: No support Team Id entered.');
+        console.warn("Bot-Handoff: No support Team Id entered.");
     }
     else {
         _supportChannelId = options.supportChannelId || process.env.SUPPORT_CHANNEL_ID;
         exports._supportChannelId = _supportChannelId;
     }
     support_address = {
-        "channelId": "msteams",
-        "bot": {
-            "id": config.MICROSOFT_APP_ID,
-            "name": "MareraBot"
+        channelId: "msteams",
+        bot: {
+            id: config.MICROSOFT_APP_ID,
+            name: "MareraBot",
         },
-        "conversation": { "isGroup": true, "id": _supportChannelId || _supportTeamId },
-        "serviceUrl": "https://smba.trafficmanager.net/emea-client-ss.msg/"
+        conversation: { isGroup: true, id: _supportChannelId || _supportTeamId },
+        serviceUrl: "https://smba.trafficmanager.net/emea-client-ss.msg/",
     };
     exports.support_address = support_address;
     if (bot) {
@@ -108,59 +109,60 @@ let setup = (bot, app, connector, isAgent, options) => {
     if (app && _directLineSecret != null) {
         app.use(bodyParser.json());
         //// Create endpoint for agent / call center
-        //app.use('/webchat', express.static('public'));
+        // app.use('/webchat', express.static('public'));
         // Endpoint to get current conversations
-        app.get('/api/conversations', (req, res) => __awaiter(this, void 0, void 0, function* () {
-            const authHeader = req.headers['authorization'];
+        app.get("/api/conversations", (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const authHeader = req.headers.authorization;
             console.log(authHeader);
             console.log(req.headers);
             if (authHeader) {
-                if (authHeader === 'Bearer ' + _directLineSecret) {
-                    let conversations = yield mongooseProvider.getCurrentConversations();
+                if (authHeader === "Bearer " + _directLineSecret) {
+                    const conversations = yield mongooseProvider.getCurrentConversations();
                     res.status(200).send(conversations);
                 }
             }
-            res.status(401).send('Not Authorized');
+            res.status(401).send("Not Authorized");
         }));
         // Endpoint to trigger handover
-        app.post('/api/conversations', (req, res) => __awaiter(this, void 0, void 0, function* () {
-            const authHeader = req.headers['authorization'];
+        app.post("/api/conversations", (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const authHeader = req.headers.authorization;
             console.log(authHeader);
             console.log(req.headers);
             if (authHeader) {
-                if (authHeader === 'Bearer ' + _directLineSecret) {
+                if (authHeader === "Bearer " + _directLineSecret) {
                     if (yield handoff.queueCustomerForAgent({ customerConversationId: req.body.conversationId })) {
-                        res.status(200).send({ "code": 200, "message": "OK" });
+                        res.status(200).send({ code: 200, message: "OK" });
                     }
                     else {
-                        res.status(400).send({ "code": 400, "message": "Can't find conversation ID" });
+                        res.status(400).send({ code: 400, message: "Can't find conversation ID" });
                     }
                 }
             }
             else {
-                res.status(401).send({ "code": 401, "message": "Not Authorized" });
+                res.status(401).send({ code: 401, message: "Not Authorized" });
             }
         }));
     }
     else {
-        throw new Error('Microsoft Bot Builder Direct Line Secret was not provided in options or the environment variable MICROSOFT_DIRECTLINE_SECRET');
+        throw new Error("Microsoft Bot Builder Direct Line Secret was not provided in options or the environment variable MICROSOFT_DIRECTLINE_SECRET");
     }
 };
-//this method is to trigger the handoff (useful for when you want a luis dialog to trigger the handoff, instead of the keyword)
+// this method is to trigger the handoff (useful for when you want a luis dialog to trigger the handoff, instead of the keyword)
 function triggerHandoff(bot, connector, session) {
     return __awaiter(this, void 0, void 0, function* () {
         const message = session.message;
         const conversation = yield handoff.getConversation({ customerConversationId: message.address.conversation.id }, message.address);
-        if (conversation.state == handoff_1.ConversationState.Bot) {
+        if (conversation.state === handoff_1.ConversationState.Bot) {
             // do not log this to prevent duplicates
-            //await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
+            // await handoff.addToTranscript({ customerConversationId: conversation.customer.conversation.id }, message);
             yield handoff.queueCustomerForAgent({ customerConversationId: conversation.customer.conversation.id });
-            //send notification of a new help request in support 
-            var msg = new builder.Message().address(support_address);
-            //if is member of team, also mention it
+            // send notification of a new help request in support
+            const msg = new builder.Message().address(support_address);
+            // if is member of team, also mention it
+            // tslint:disable-next-line: variable-name
             let team_text = session.message.address.user.name;
-            if (session.message.channelId == 'msteams' && message.address.conversation.isGroup) {
-                //get the team name
+            if (session.message.channelId === "msteams" && message.address.conversation.isGroup) {
+                // get the team name
                 const teamName = yield new Promise((resolve, reject) => {
                     connector.fetchTeamInfo(session.message.address.serviceUrl, session.message.sourceEvent.team.id || null, (err, result) => {
                         if (err) {
@@ -171,21 +173,21 @@ function triggerHandoff(bot, connector, session) {
                         }
                     });
                 });
-                team_text += ' from ' + teamName;
+                team_text += " from " + teamName;
             }
-            team_text += ' needs help. Last message:\n' + message.text;
-            var herocard = new builder.HeroCard(session)
+            team_text += " needs help. Last message:\n" + message.text;
+            const herocard = new builder.HeroCard(session)
                 .text(team_text)
                 .buttons([
                 builder.CardAction.imBack(session, "connect " + message.address.conversation.id, "Connect"),
                 builder.CardAction.imBack(session, "watch " + message.address.conversation.id, "Watch"),
-                builder.CardAction.imBack(session, "history " + message.address.conversation.id, "Chat logs")
+                builder.CardAction.imBack(session, "history " + message.address.conversation.id, "Chat logs"),
             ]);
             // attach the card to the reply message
             msg.addAttachment(herocard);
             bot.send(msg);
-            // commented out because we don't want the user to know 
-            //session.endConversation("Connecting you to the next available agent.");
+            // commented out because we don't want the user to know
+            // session.endConversation("Connecting you to the next available agent.");
             return;
         }
     });
